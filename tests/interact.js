@@ -53,6 +53,60 @@ test('base: carga sin errores de consola', async (page, errors) => {
 
 /* ---------- motor MicroKit ---------- */
 
+const INV = `w => w.total.sent === w.total.ok + w.total.err + w.inFlight`;
+const SPIKE = `{ rate: 8, mix: { '/usuarios': 1, '/ordenes': 1, '/pagos': 6 }, workTime: { '/usuarios': 0.4, '/ordenes': 0.4, '/pagos': 0.8 } }`;
+
+test('micro: monolito atiende', async page => {
+  await open(page);
+  const r = await engine(page, `svg => {
+    const s = new MicroKit.MicroSim(svg, { rate: 3 });
+    s.fastForward(10);
+    const w = s.window(10);
+    return { w, inv: (${INV})(w) };
+  }`);
+  check(r.w.ok > 20, `ok=${r.w.ok}`);
+  check(r.w.err === 0, `err=${r.w.err}`);
+  check(r.inv, `invariante: ${JSON.stringify(r.w)}`);
+});
+
+test('micro: pico en /pagos satura una copia', async page => {
+  await open(page);
+  for (const seed of [1, 2, 3]) {
+    const r = await engine(page, `(svg, seed) => {
+      const s = new MicroKit.MicroSim(svg, Object.assign(${SPIKE}, { copies: 1, seed }));
+      s.fastForward(10);
+      return s.window(10);
+    }`, seed);
+    check(r.err > 0, `seed ${seed}: err=${r.err}`);
+  }
+});
+
+test('micro: más copias absorben el pico, pero cuestan todo', async page => {
+  await open(page);
+  for (const seed of [1, 2, 3]) {
+    const r = await engine(page, `(svg, seed) => {
+      const s = new MicroKit.MicroSim(svg, Object.assign(${SPIKE}, { copies: 3, seed }));
+      s.fastForward(10);
+      return { w: s.window(10), res: s.resources() };
+    }`, seed);
+    check(r.w.err === 0, `seed ${seed}: err=${r.w.err}`);
+    check(r.res === 9, `recursos=${r.res}`);
+  }
+});
+
+test('micro: mínimo una copia', async page => {
+  await open(page);
+  const r = await engine(page, `svg => {
+    const s = new MicroKit.MicroSim(svg, { rate: 3 });
+    s.removeCopy(); s.removeCopy(); s.removeCopy();
+    s.fastForward(5);
+    const w = s.window(5);
+    return { copies: s.copies.length, w, inv: (${INV})(w) };
+  }`);
+  check(r.copies === 1, `copias=${r.copies}`);
+  check(r.inv, `invariante: ${JSON.stringify(r.w)}`);
+});
+
 /* ---------- escenas ---------- */
 
 /* ---------- runner ---------- */

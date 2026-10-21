@@ -347,3 +347,13 @@ html.mobile .speed-ctl button { font-size: 16px; padding: 5px 7px; }
 html.mobile .speed-ctl span { min-width: 34px; }
 
 [hidden] { display: none !important; }
+
+/* ---------- motor de microservicios (js/micro.js) ---------- */
+.microsim .mod { opacity: .85; }
+.microsim .t-mod { fill: #0b1020; font: 700 11px var(--sans); }
+.microsim .down .node-box { fill: #3a1018; stroke: var(--red); }
+.microsim .down .mod { opacity: .25; }
+.microsim .deploying .node-box { stroke: var(--yellow); stroke-dasharray: 6 5; }
+.microsim .deploying .t-sub { fill: var(--yellow); }
+.microsim .t-host { fill: var(--muted); font: 600 12px var(--mono); }
+.microsim .t-code { fill: #cbd5e1; font: 11px var(--mono); }
