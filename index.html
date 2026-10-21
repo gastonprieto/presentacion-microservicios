@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Título de la presentación</title>
+  <script>
+    // Celular → versión móvil (html.mobile): documento vertical sin reveal.js.
+    // Se puede forzar con ?mobile=1 o ?mobile=0. Las tablets usan la versión de escritorio.
+    (function () {
+      var q = new URLSearchParams(location.search).get('mobile');
+      var phone = /Mobi|iPhone|iPod/i.test(navigator.userAgent) || Math.min(screen.width, screen.height) < 600;
+      if (q === '1' || (q !== '0' && phone)) document.documentElement.classList.add('mobile');
+    })();
+  </script>
+  <link rel="stylesheet" href="vendor/reveal/reveal.css">
+  <link rel="stylesheet" href="css/theme.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+
+<!-- ============ 1. PORTADA ============ -->
+<section class="title-slide" data-scene="title">
+  <svg class="bg"></svg>
+  <div class="hero">
+    <div class="kicker">Materia · Tema</div>
+    <h1>Título <span class="grad">principal</span><br>de la charla</h1>
+    <p class="sub">Una línea que resume de qué trata y qué se van a llevar.</p>
+    <p class="keys"><kbd>→</kbd> avanzar · <kbd>S</kbd> notas del orador · <kbd>F</kbd> pantalla completa · <kbd>O</kbd> vista general</p>
+    <p class="keys-mobile">Deslizá hacia abajo para recorrerla. Las simulaciones se activan al llegar a cada una.</p>
+  </div>
+  <aside class="notes">
+    Guion de la bienvenida: objetivo de la clase y cómo se lee la presentación.
+    Pregunta para la clase: …
+  </aside>
+</section>
+
+<!-- ============ 2. DEMO CON SIMULACIÓN ============ -->
+<section data-scene="demo">
+  <div class="kicker green">Ejemplo de demo</div>
+  <h2>Simulación con controles</h2>
+  <div class="demo">
+    <div class="stage">
+      <svg class="sim"></svg>
+      <div class="legend"><span><i style="background:#7dd3fc"></i>request</span><span><i style="background:#4ade80"></i>ok</span><span><i style="background:#facc15"></i>lenta</span><span><i style="background:#f87171"></i>error</span></div>
+    </div>
+    <div class="panel">
+      <p class="lead">Texto corto que dice <b>qué mirar</b> en la demo.</p>
+      <div class="actions">
+        <button class="btn primary" data-act="add">＋ Servidor</button>
+        <button class="btn" data-act="remove">－ Servidor</button>
+        <button class="btn ghost" data-act="reset">↺</button>
+      </div>
+      <div class="box">
+        <div class="label">Tráfico entrante</div>
+        <div class="slider-row"><input type="range" min="1" max="40" step="1" value="3"><span class="rate-out">3 req/s</span></div>
+        <div class="slider-row" style="margin-top:6px;font-size:13px"><span class="srv-out" style="font-size:13px"></span><span style="flex:1"></span><span class="util-out ok">60%</span></div>
+      </div>
+      <div class="chart-box" style="height:118px"><canvas class="chart"></canvas></div>
+      <div class="stats"></div>
+      <ul class="points">
+        <li class="fragment">Viñeta que aparece con →</li>
+        <li class="fragment">Otra viñeta</li>
+      </ul>
+    </div>
+  </div>
+  <aside class="notes">
+    Qué demostrar: subir el tráfico hasta saturar, agregar servidores y mostrar cómo baja la latencia.
+    Pregunta para la clase: …
+  </aside>
+</section>
+
+<!-- ============ 3. DEMO CON MODOS ============ -->
+<section data-scene="modes">
+  <div class="kicker purple">Ejemplo de modos</div>
+  <h2>Comparar diseños con un control segmentado</h2>
+  <div class="demo">
+    <div class="stage"><svg class="sim"></svg></div>
+    <div class="panel">
+      <p class="lead">Cada botón reconfigura la simulación y cambia el texto explicativo.</p>
+      <div class="seg" data-group="mode">
+        <button data-v="single" class="active">Una DB</button>
+        <button data-v="cache">+ Caché</button>
+      </div>
+      <p class="mode-text" data-mode="single">Todas las consultas van a la base de datos.</p>
+      <p class="mode-text" data-mode="cache">Un caché responde la mayoría de las lecturas.</p>
+      <div class="spacer"></div>
+      <div class="box strip-box"><div class="label">Disponibilidad · últimos 40 s</div><div class="strip"></div></div>
+      <div class="stats" data-fields="ok,err,p95"></div>
+    </div>
+  </div>
+  <aside class="notes">
+    Mostrar primero un modo, después el otro, y comparar los contadores.
+  </aside>
+</section>
+
+<!-- ============ 4. ESCENA MANUAL ============ -->
+<section data-scene="manual">
+  <div class="kicker">Ejemplo de escena manual</div>
+  <h2>Dibujo propio con el reloj de la simulación</h2>
+  <div class="demo">
+    <div class="stage"><svg class="sim"></svg></div>
+    <div class="panel">
+      <p class="lead">Para diagramas que la <code>Sim</code> no cubre: SVG propio animado con <code>Clock</code>, que respeta la pausa y la velocidad global.</p>
+      <div class="actions"><button class="btn ghost" data-act="reset">↺ Reiniciar</button></div>
+    </div>
+  </div>
+  <aside class="notes">
+    Esqueleto para escenas a medida (ver S.manual en js/scenes.js).
+  </aside>
+</section>
+
+<!-- ============ 5. SLIDE ESTÁTICA ============ -->
+<section>
+  <div class="kicker purple">Ejemplo estático</div>
+  <h2>Comparación en dos columnas</h2>
+  <div class="compare">
+    <div class="layer-card l4">
+      <h3>Opción A <small>subtítulo</small></h3>
+      <div class="packet"><div class="tag">detalle</div><span class="seen">dato importante</span> → otro dato</div>
+      <ul>
+        <li class="fragment">Ventaja</li>
+        <li class="fragment">Desventaja</li>
+      </ul>
+      <div class="ex">Ej.: herramientas reales</div>
+    </div>
+    <div class="layer-card l7">
+      <h3>Opción B <small>subtítulo</small></h3>
+      <div class="rules"><span>regla</span> → resultado</div>
+      <ul>
+        <li class="fragment">Ventaja</li>
+        <li class="fragment">Desventaja</li>
+      </ul>
+      <div class="ex">Ej.: herramientas reales</div>
+    </div>
+  </div>
+  <aside class="notes">
+    Slide sin simulación: no lleva data-scene.
+  </aside>
+</section>
+
+<!-- ============ 6. RESUMEN ============ -->
+<section>
+  <div class="kicker">Resumen</div>
+  <h2>Lo que nos llevamos</h2>
+  <div class="summary">
+    <div class="card bad fragment"><div class="ico">🖥️</div><h4>Problema</h4><p>Qué se rompe y por qué.</p></div>
+    <div class="card good fragment"><div class="ico">↔️</div><h4>Solución</h4><p>Qué lo resuelve.</p></div>
+    <div class="card good fragment"><div class="ico">🎯</div><h4>Idea clave</h4><p>Lo que tienen que recordar.</p></div>
+  </div>
+  <aside class="notes">
+    Repasar cada tarjeta conectándola con su demo.
+  </aside>
+</section>
+
+</div>
+</div>
+
+<script src="vendor/reveal/reveal.js"></script>
+<script src="vendor/reveal/plugin/notes.js"></script>
+<script src="vendor/gsap.min.js"></script>
+<script src="vendor/chart.umd.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/widgets.js"></script>
+<script src="js/scenes.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
