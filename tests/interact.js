@@ -363,6 +363,57 @@ test('escena 5: falla aislada', async page => {
   check(r.reps === 2, `réplicas de pagos=${r.reps}`);
 });
 
+test('escena 6: separar sin actualizar da errores', async page => {
+  await open(page);
+  const r = await evalScene(page, 6, `sec => {
+    const sim = sec._scene.sim;
+    (${click})(sec, '[data-act=split]');
+    sim.fastForward(5);
+    const a = sim.window(5).e404;
+    (${click})(sec, '[data-act=update]');
+    sim.fastForward(1);
+    sim.fastForward(4);
+    return { a, b: sim.window(4).e404, hosts: sec.querySelector('svg.sim').textContent.includes('envios.tienda.com') };
+  }`);
+  check(r.a > 0, `404 antes de actualizar=${r.a}`);
+  check(r.b === 0, `404 después=${r.b}`);
+  check(r.hosts, 'falta la dirección de envíos');
+});
+
+test('escena 7: el código de la app web se ve', async page => {
+  await open(page);
+  const r = await evalScene(page, 7, `sec => sec.querySelector('.code').textContent`);
+  check(/usuarios/.test(r) && /ordenes/.test(r) && /pagos/.test(r), `código=${r}`);
+});
+
+test('escena 8: separar cuesta un deploy, tirar corta todo', async page => {
+  await open(page);
+  const r = await evalScene(page, 8, `sec => {
+    const sim = sec._scene.sim;
+    sim.fastForward(2);
+    (${click})(sec, '[data-act=split]');
+    sim.fastForward(6);
+    const a = { count: sim.deployCount('appweb'), err: sim.window(6).err, code: sec.querySelector('.code').textContent };
+    (${click})(sec, '[data-act=crash]');
+    sim.fastForward(3);
+    return { a, ok: sim.window(2).ok };
+  }`);
+  check(r.a.count === 1 && r.a.err === 0, JSON.stringify(r.a));
+  check(/envios/.test(r.a.code), `código=${r.a.code}`);
+  check(r.ok === 0, `ok con la app web caída=${r.ok}`);
+});
+
+test('slides: ninguna visible nombra proxy ni gateway', async page => {
+  await open(page);
+  const t = await page.evaluate(() => [...document.querySelectorAll('.slides > section')].map(s => {
+    const c = s.cloneNode(true);
+    c.querySelectorAll('aside.notes').forEach(n => n.remove());
+    return c.textContent;
+  }).join(' '));
+  const m = t.match(/proxy|gateway/i);
+  check(!m, `aparece "${m && m[0]}"`);
+});
+
 /* ---------- runner ---------- */
 
 (async () => {

@@ -137,11 +137,43 @@
     return life(sim);
   };
 
-  /* ---------- escenas (pendientes) ---------- */
+  /* ---------- 6. el cliente conoce tres direcciones ---------- */
 
-  S.direct = slide => ({ start() {}, stop() {} });
-  S.appweb = slide => ({ start() {}, stop() {} });
-  S.cracks = slide => ({ start() {}, stop() {} });
+  S.direct = slide => {
+    const sim = msetup(slide, { rate: 4, topology: 'direct' });
+    on(slide, '[data-act=split]', () => sim.split('envios'));
+    on(slide, '[data-act=update]', () => sim.updateClient());
+    on(slide, '[data-act=reset]', () => sim.reset());
+    return life(sim);
+  };
+
+  /* ---------- 7 y 8. una app web que habla por todos / sus grietas ---------- */
+
+  // Muestra el código de la app web en <pre class="code">
+  function codeBox(slide, sim) {
+    const el = slide.querySelector('.code');
+    const draw = () => { el.textContent = sim.appwebCode().join('\n'); };
+    sim.on('change', draw);
+    sim.on('reset', draw);
+    draw();
+  }
+
+  S.appweb = slide => {
+    const sim = msetup(slide, { rate: 2, topology: 'appweb' });
+    rateSlider(slide, sim);
+    codeBox(slide, sim);
+    return life(sim);
+  };
+
+  S.cracks = slide => {
+    const sim = msetup(slide, { rate: 2, topology: 'appweb' });
+    codeBox(slide, sim);
+    on(slide, '[data-act=split]', () => sim.split('envios'));
+    on(slide, '[data-act=crash]', () => sim.crash('appweb'));
+    on(slide, '[data-act=recover]', () => sim.recover('appweb'));
+    on(slide, '[data-act=reset]', () => sim.reset());
+    return life(sim);
+  };
 
   window.Scenes = S;
 })();

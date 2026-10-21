@@ -364,3 +364,14 @@ html.mobile .speed-ctl span { min-width: 34px; }
 .touched { font-size: 16px; color: #cbd5e1; margin-top: 4px; }
 .touched b { color: var(--yellow); }
 .microsim .t-host.small { font-size: 10px; }
+.panel pre.code { margin: 4px 0 0; font: 13px/1.45 var(--mono); color: #cbd5e1; white-space: pre-wrap; }
+.closing { text-align: center; font-size: 34px; margin-top: 26px; color: #cbd5e1; }
+.closing b { color: #fff; }
+html.mobile .closing { font-size: 24px; }
+.reveal section .summary:has(+ .closing) { margin-top: 40px; }
+.reveal section .summary:has(+ .closing) .card { min-height: 220px; }
+.reveal section .summary:has(+ .closing) .card p { font-size: 20px; }
+.reveal .closing { margin-top: 56px; }
+html.mobile .reveal section .summary:has(+ .closing) { margin-top: 12px; }
+html.mobile .reveal section .summary:has(+ .closing) .card { min-height: 0; }
+html.mobile .reveal .closing { margin-top: 24px; }

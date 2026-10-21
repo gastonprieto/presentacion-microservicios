@@ -211,11 +211,29 @@
   <div class="kicker red">El costo</div>
   <h2>El cliente conoce tres direcciones</h2>
   <div class="demo">
-    <div class="stage"><svg class="sim"></svg></div>
-    <div class="panel"></div>
+    <div class="stage">
+      <svg class="sim"></svg>
+      <div class="legend"><span><i style="background:#60a5fa"></i>/usuarios</span><span><i style="background:#fb923c"></i>/ordenes</span><span><i style="background:#2dd4bf"></i>/pagos</span><span><i style="background:#a3e635"></i>/ordenes/envios</span></div>
+    </div>
+    <div class="panel">
+      <p class="lead">Cada servicio tiene <b>su propia dirección</b>, y el cliente (el navegador, la app del celular) tiene que conocerlas todas.</p>
+      <div class="actions">
+        <button class="btn primary" data-act="split">✂ Separar Envíos de Órdenes</button>
+        <button class="btn" data-act="update">📲 Actualizar el cliente</button>
+        <button class="btn ghost" data-act="reset">↺</button>
+      </div>
+      <div class="mstats" data-fields="ok,err"></div>
+      <ul class="points">
+        <li class="fragment">Mover o partir un servicio <b>rompe a los clientes</b> hasta que se actualicen. Y una app de celular no se actualiza cuando nosotros queremos.</li>
+        <li class="fragment">Todos los servicios quedan <b>expuestos a internet</b>, y cada uno repite HTTPS, autenticación y límites.</li>
+      </ul>
+    </div>
   </div>
   <aside class="notes">
-    Pendiente.
+    Mostrar las tres direcciones sobre las flechas: el cliente las tiene escritas en su código.
+    Tocar "Separar Envíos de Órdenes": aparece el servicio de envíos con su dirección nueva, pero el cliente sigue pidiendo /ordenes/envios a órdenes, que ya no lo atiende: 404.
+    Tocar "Actualizar el cliente": recién ahí los pedidos verdes van a envíos. En la web eso es un deploy del front; en una app móvil es esperar a que cada usuario actualice.
+    Pregunta para la clase: ¿y si el cliente pudiera hablar con una sola dirección, sin saber qué hay atrás?
   </aside>
 </section>
 
@@ -224,11 +242,29 @@
   <div class="kicker green">Una sola dirección</div>
   <h2>Una app web que habla por todos</h2>
   <div class="demo">
-    <div class="stage"><svg class="sim"></svg></div>
-    <div class="panel"></div>
+    <div class="stage">
+      <svg class="sim"></svg>
+      <div class="legend"><span><i style="background:#7dd3fc"></i>página</span><span><i style="background:#60a5fa"></i>usuarios</span><span><i style="background:#fb923c"></i>órdenes</span><span><i style="background:#2dd4bf"></i>pagos</span><span><i style="background:#a3e635"></i>envíos</span></div>
+    </div>
+    <div class="panel">
+      <p class="lead">El cliente le habla solo a la <b>app web</b>, en <b>tienda.com</b>. Ella llama a cada servicio y <b>arma la página</b>.</p>
+      <div class="box">
+        <div class="label">Tráfico entrante (páginas)</div>
+        <div class="slider-row"><input type="range" min="1" max="6" step="1" value="2"><span class="rate-out">2 req/s</span></div>
+      </div>
+      <div class="box"><div class="label">Código de la app web</div><pre class="code"></pre></div>
+      <div class="mstats" data-fields="ok,err,calls"></div>
+      <ul class="points">
+        <li class="fragment">El cliente vuelve a conocer <b>una sola dirección</b>.</li>
+        <li class="fragment">Los servicios ya no están expuestos: solo la app web los ve.</li>
+      </ul>
+    </div>
   </div>
   <aside class="notes">
-    Pendiente.
+    Cada punto celeste es una página que pide el cliente. La app web hace tres llamadas en paralelo (una por servicio), espera las tres respuestas y recién ahí contesta.
+    Mirar el contador de llamadas internas: tres por cada página.
+    Mostrar el "código": la app web sabe a qué servicio llamar y en qué dirección interna está.
+    Pregunta para la clase: ¿qué tiene que pasar en la app web si mañana agregamos un servicio nuevo?
   </aside>
 </section>
 
@@ -237,11 +273,31 @@
   <div class="kicker red">Grietas</div>
   <h2>La app web se volvió un mini-monolito</h2>
   <div class="demo">
-    <div class="stage"><svg class="sim"></svg></div>
-    <div class="panel"></div>
+    <div class="stage">
+      <svg class="sim"></svg>
+      <div class="legend"><span><i style="background:#7dd3fc"></i>página</span><span><i style="background:#60a5fa"></i>usuarios</span><span><i style="background:#fb923c"></i>órdenes</span><span><i style="background:#2dd4bf"></i>pagos</span><span><i style="background:#a3e635"></i>envíos</span></div>
+    </div>
+    <div class="panel">
+      <p class="lead">Funciona, pero todo lo que cambia atrás <b>pasa por la app web</b>.</p>
+      <div class="actions">
+        <button class="btn primary" data-act="split">✂ Separar Envíos</button>
+        <button class="btn" data-act="crash">💥 Tirar la app web</button>
+        <button class="btn" data-act="recover">🩹 Levantarla</button>
+        <button class="btn ghost" data-act="reset">↺</button>
+      </div>
+      <div class="box"><div class="label">Código de la app web</div><pre class="code"></pre></div>
+      <div class="mstats" data-fields="ok,err,deploys"></div>
+      <ul class="points">
+        <li class="fragment">Cada servicio nuevo = <b>código nuevo + deploy</b> de la app web.</li>
+        <li class="fragment">HTTPS, autenticación, límites: <b>todo acá</b>, para todos.</li>
+        <li class="fragment">Si se cae la app web, <b>se cae todo</b>, aunque los servicios estén sanos.</li>
+      </ul>
+    </div>
   </div>
   <aside class="notes">
-    Pendiente.
+    Tocar "Separar Envíos": aparece el servicio, pero la app web no lo conoce. Hay que agregar una línea a su código y deployarla (se ven las instancias reiniciándose de a una, sin errores). El cliente no se enteró, pero el equipo de la app web tuvo que trabajar por un cambio de otro equipo.
+    Tocar "Tirar la app web": los tres servicios siguen verdes y aun así ningún cliente recibe nada.
+    Pregunta para la clase: ¿no se parece a lo que teníamos al principio? Una pieza que hay que tocar y deployar por cada cambio, y que si se cae arrastra a todos.
   </aside>
 </section>
 
@@ -249,8 +305,16 @@
 <section>
   <div class="kicker">Cierre</div>
   <h2>Lo que nos llevamos</h2>
+  <div class="summary">
+    <div class="card bad fragment"><div class="ico">🧱</div><h4>Monolito</h4><p>Simple, pero se escala, se deploya y se cae <b>todo junto</b>.</p></div>
+    <div class="card good fragment"><div class="ico">🧩</div><h4>Servicios</h4><p>Cada parte escala, se deploya y falla <b>por su cuenta</b>.</p></div>
+    <div class="card bad fragment"><div class="ico">🖥</div><h4>Una sola dirección</h4><p>El cliente no puede conocer a todos. Una app web lo resuelve, pero con <b>código por cada servicio</b>.</p></div>
+  </div>
+  <p class="closing fragment">¿Y si en vez de <b>código</b> hubiera <b>reglas</b>?</p>
   <aside class="notes">
-    Pendiente.
+    Repasar cada tarjeta con su demo: el pico de pagos, el deploy de órdenes, la falla aislada y la app web.
+    Los servicios también se hablan entre sí (con llamadas, colas o eventos): eso tiene sus propias clases.
+    Dejar la pregunta abierta: ¿se puede tener una sola dirección sin escribir código cada vez que algo cambia atrás?
   </aside>
 </section>
 
