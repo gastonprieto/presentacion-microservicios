@@ -1,0 +1,64 @@
+# Laboratorio de microservicios: el mismo tienda.com de dos formas.
+#   1) El monolito: un programa con los módulos Usuarios, Órdenes y Pagos, con copias detrás de un LB.
+#   2) Partido en servicios: Usuarios, Órdenes y Pagos (y Envíos) por separado, y una app web
+#      que es la única dirección del cliente y llama a cada servicio con código.
+# Instrucciones en el README ("Laboratorio con Docker").
+name: lab-microservicios
+
+x-servicio: &servicio
+  build: ./lab/servicio
+  image: lab-microservicios-servicio
+  restart: unless-stopped
+
+services:
+  # ---------- 1) Monolito ----------
+  monolito:
+    build: ./lab/monolito
+    restart: unless-stopped
+    environment:
+      VERSION: v1                # 🚀 un cambio en Pagos: subilo a v2 y docker compose up -d monolito
+    deploy: { replicas: 1 }      # docker compose up -d --scale monolito=3
+  lb:
+    image: haproxy:3.0-alpine
+    restart: unless-stopped
+    volumes: ["./lab/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro"]
+    ports:
+      - "8000:8000"   # tienda.com versión monolito
+      - "8404:8404"   # panel del LB: qué copias están vivas
+
+  # ---------- 2) Servicios ----------
+  usuarios:
+    <<: *servicio
+    environment: { NOMBRE: Usuarios, PREFIJO: /usuarios, WORK_MS: 50 }
+    ports: ["8101:3000"]
+  ordenes:
+    <<: *servicio
+    environment:
+      NOMBRE: Órdenes
+      PREFIJO: /ordenes
+      WORK_MS: 100
+      # ✂ Separar Envíos: descomentá para que Órdenes deje de atender los envíos.
+      # NO_ATIENDE: /ordenes/envios
+    ports: ["8102:3000"]
+  pagos:
+    <<: *servicio
+    environment: { NOMBRE: Pagos, PREFIJO: /pagos, WORK_MS: 300, VERSION: v1 }   # 🚀 un cambio: v2
+    ports: ["8103-8106:3000"]    # una dirección por réplica (hasta 4)
+  envios:
+    <<: *servicio
+    profiles: ["envios"]         # docker compose --profile envios up -d envios
+    environment: { NOMBRE: Envíos, PREFIJO: /ordenes/envios, WORK_MS: 80 }
+    ports: ["8107:3000"]
+
+  # La única dirección que conoce el cliente en la versión con app web.
+  web:
+    build: ./lab/web
+    image: lab-microservicios-web
+    restart: unless-stopped
+    ports: ["8080:3000"]
+
+  # Generador de carga: docker compose run --rm carga http://lb:8000/pagos -c 30 -d 20
+  carga:
+    image: lab-microservicios-web
+    entrypoint: ["node", "carga.js"]
+    profiles: ["herramientas"]
