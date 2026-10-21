@@ -173,7 +173,7 @@
   }
 
   // Contadores de MicroSim: ok/err/calls en la ventana; resources, upCopies y deploys del estado actual
-  const MLABELS = { ok: 'OK (5 s)', err: 'Errores (5 s)', resources: 'Recursos', upCopies: 'Copias arriba', deploys: 'Deploys', calls: 'Llamadas internas' };
+  const MLABELS = { ok: 'OK (5 s)', err: 'Errores (5 s)', resources: 'Recursos', upCopies: 'Copias arriba', deploys: 'Deploys', calls: 'Llamadas (5 s)' };
   function mstats(el, sim, fields, win = 5) {
     el.innerHTML = `<div class="stats">${fields.map(f => `<div class="stat s-${f}"><b data-f="${f}">0</b><span>${MLABELS[f]}</span></div>`).join('')}</div>`;
     const update = () => {

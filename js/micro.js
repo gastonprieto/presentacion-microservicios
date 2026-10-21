@@ -74,7 +74,7 @@
       this.gPk = svgEl('g', {}, this.svg);
       this.gTop = svgEl('g', {}, this.svg);
       this.c = { sent: 0, ok: 0, err: 0, e404: 0, calls: 0 };
-      this.log = [];
+      this.log = []; this.callLog = [];
       this.flying = new Set();
       this.seq = 0; this.wseq = 0; this.clientVersion = 1;
       this._build();
@@ -130,7 +130,7 @@
     }
 
     _addWorker(g, fresh) {
-      const w = { id: ++this.wseq, state: 'up', active: 0, queue: [], epoch: 0, version: g.deploys, x: g.x, y: g.y, hw: g.hw, hh: g.hh, scale: fresh ? 0 : 1 };
+      const w = { id: ++this.wseq, state: 'up', active: 0, queue: [], jobs: new Set(), epoch: 0, version: g.deploys, x: g.x, y: g.y, hw: g.hw, hh: g.hh, scale: fresh ? 0 : 1 };
       if (g.kind !== 'mono') {
         w.g = svgEl('g', { class: 'worker' }, g.cells);
         w.box = svgEl('rect', { class: 'cell', rx: 3 }, w.g);
@@ -260,6 +260,7 @@
       ids.forEach(id => {
         const g = this._target(id), call = { path: g.serves[0] };
         this.c.calls++;
+        this.callLog.push(this.now);
         this._toGroup(call, g, app, ROUTE_COLORS[call.path] || C.req, st => {
           if (st !== 200) bad = true;
           this._fly(g, app, st === 200 ? C.ok : C.err, () => {
@@ -319,11 +320,13 @@
 
     _work(req, g, w, done) {
       w.active++;
-      const epoch = w.epoch, gen = this.gen;
+      const epoch = w.epoch, gen = this.gen, job = { done };
+      w.jobs.add(job);
       const d = (this.o.workTime[req.path] || 0.4) * (0.85 + 0.3 * this.rand());
       this.clock.after(d, () => {
         if (gen !== this.gen) return;
-        if (w.epoch !== epoch) return; // el worker se cayó con el pedido adentro: ya se contó como error
+        if (w.epoch !== epoch) return; // el worker se cayó con el pedido adentro: _kill ya lo terminó como error
+        w.jobs.delete(job);
         w.active--;
         this._pop(w, '✔', C.ok);
         done(200);
@@ -429,8 +432,9 @@
     _kill(w) {
       w.epoch++;
       w.active = 0;
-      const q = w.queue; w.queue = [];
-      q.forEach(x => x.done('conn'));
+      const jobs = [...w.jobs], q = w.queue;
+      w.jobs.clear(); w.queue = [];
+      jobs.concat(q).forEach(x => x.done('conn'));
     }
 
     _target(id) { return id === 'monolith' ? this.mono : this.groups.find(g => g.id === id); }
@@ -524,6 +528,8 @@
           if (e.svc) w.byService[e.svc] = (w.byService[e.svc] || 0) + 1;
         } else { w.err++; if (e.status === 404) w.e404++; }
       }
+      if (this.callLog.length > 4000) this.callLog.splice(0, 1500);
+      w.calls = this.callLog.filter(t => t >= t0).length;
       return Object.assign(w, {
         sent: this.c.sent, inFlight: this.flying.size, resources: this.resources(),
         total: { sent: this.c.sent, ok: this.c.ok, err: this.c.err, e404: this.c.e404, calls: this.c.calls }
@@ -547,9 +553,14 @@
         if (g.kind !== 'mono') this._drawGroup(g);
         g.workers.forEach((w, i) => this._drawWorker(g, w, i));
       });
-      this.hosts.forEach(h => {
-        // en celular las curvas salen juntas del cliente: la dirección va arriba de cada servicio
-        const P = this.v ? { x: h.g.x, y: h.g.y - h.g.hh * h.g.scale - 8 } : cubic(edge(this.client, h.g, this.v), edge(h.g, this.client, this.v), 0.55, this.v);
+      const nh = this.hosts.length;
+      this.hosts.forEach((h, i) => {
+        // en celular las curvas salen juntas del cliente: la dirección va arriba de cada servicio,
+        // pegada al borde en los extremos y en dos filas si son cuatro
+        const P = this.v ? { x: h.g.x, y: h.g.y - h.g.hh * h.g.scale - 8 - (nh > 3 && i % 2 ? 13 : 0) } : cubic(edge(this.client, h.g, this.v), edge(h.g, this.client, this.v), 0.55, this.v);
+        const anchor = !this.v ? 'middle' : i === 0 ? 'start' : i === nh - 1 ? 'end' : 'middle';
+        if (this.v && anchor !== 'middle') P.x += (anchor === 'start' ? -1 : 1) * h.g.hw;
+        h.t.setAttribute('text-anchor', anchor);
         h.t.setAttribute('x', P.x); h.t.setAttribute('y', P.y - (this.v ? 0 : 6));
         h.t.classList.toggle('small', this.v);
         h.t.textContent = `${h.g.id}.${this.o.host}`;

@@ -414,6 +414,65 @@ test('slides: ninguna visible nombra proxy ni gateway', async page => {
   check(!m, `aparece "${m && m[0]}"`);
 });
 
+test('micro: lo que estaba en proceso al caer termina como error', async page => {
+  await open(page);
+  const r = await engine(page, `svg => {
+    const out = {};
+    for (const [topo, target] of [['monolith', 'pagos'], ['appweb', 'pagos']]) {
+      const s = new MicroKit.MicroSim(svg, { topology: topo, rate: 6 });
+      s.fastForward(2);
+      s.crash(target);
+      s.setRate(0);
+      s.fastForward(10);
+      const w = s.window(30);
+      out[topo] = { inFlight: w.inFlight, err: w.total.err, active: s.groups.flatMap(g => g.workers).reduce((a, x) => a + x.active, 0) };
+    }
+    return out;
+  }`);
+  for (const [k, v] of Object.entries(r)) check(v.inFlight === 0 && v.active === 0 && v.err > 0, `${k}: ${JSON.stringify(v)}`);
+});
+
+test('micro: quitar una copia ocupada no deja pedidos colgados', async page => {
+  await open(page);
+  const r = await engine(page, `svg => {
+    const s = new MicroKit.MicroSim(svg, { rate: 8, copies: 3 });
+    s.fastForward(2);
+    s.removeCopy(); s.removeCopy();
+    s.setRate(0);
+    s.fastForward(10);
+    return s.window(30).inFlight;
+  }`);
+  check(r === 0, `en vuelo=${r}`);
+});
+
+test('escena 7: cuenta las llamadas internas', async page => {
+  await open(page);
+  const r = await evalScene(page, 7, `sec => {
+    const sim = sec._scene.sim;
+    sim.fastForward(5);
+    return { w: sim.window(5).calls, txt: sec.querySelector('.mstats [data-f=calls]').textContent };
+  }`);
+  check(r.w > 0 && /^\d+$/.test(r.txt) && +r.txt > 0, JSON.stringify(r));
+});
+
+test('celular: las direcciones no se pisan con cuatro servicios', async page => {
+  await open(page, 0, true);
+  const r = await engine(page, `svg => {
+    const s = new MicroKit.MicroSim(svg, { topology: 'direct' });
+    s.split('envios');
+    s.fastForward(1);
+    const b = [...svg.querySelectorAll('.t-host')].map(t => t.getBBox());
+    const hits = [];
+    for (let i = 0; i < b.length; i++) for (let j = i + 1; j < b.length; j++) {
+      const A = b[i], B = b[j];
+      if (A.x < B.x + B.width && B.x < A.x + A.width && A.y < B.y + B.height && B.y < A.y + A.height) hits.push([i, j]);
+    }
+    const out = b.filter(x => x.x < 0 || x.x + x.width > 400).length;
+    return { n: b.length, hits, out };
+  }`);
+  check(r.n === 4 && !r.hits.length && !r.out, JSON.stringify(r));
+});
+
 /* ---------- runner ---------- */
 
 (async () => {
