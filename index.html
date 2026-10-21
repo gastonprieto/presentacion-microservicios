@@ -42,11 +42,30 @@
   <div class="kicker">Punto de partida</div>
   <h2>Una app, una dirección</h2>
   <div class="demo">
-    <div class="stage"><svg class="sim"></svg></div>
-    <div class="panel"></div>
+    <div class="stage">
+      <svg class="sim"></svg>
+      <div class="legend"><span><i style="background:#60a5fa"></i>/usuarios</span><span><i style="background:#fb923c"></i>/ordenes</span><span><i style="background:#2dd4bf"></i>/pagos</span></div>
+    </div>
+    <div class="panel">
+      <p class="lead">Una sola aplicación hace todo: <b>usuarios, órdenes y pagos</b> son módulos del mismo programa. El cliente conoce una sola dirección: <b>tienda.com</b>.</p>
+      <div class="box">
+        <div class="label">Tráfico entrante</div>
+        <div class="slider-row"><input type="range" min="1" max="8" step="1" value="3"><span class="rate-out">3 req/s</span></div>
+      </div>
+      <div class="mstats" data-fields="ok,err"></div>
+      <ul class="points">
+        <li class="fragment">Un solo código, un solo deploy, una sola base de datos.</li>
+        <li class="fragment">Para muchos sistemas, <b>esto está bien</b>: es simple de entender, probar y operar.</li>
+        <li class="fragment">Si hace falta más capacidad, ya lo vimos: <b>copias detrás de un load balancer</b>.</li>
+      </ul>
+    </div>
   </div>
   <aside class="notes">
-    Pendiente.
+    Este es el punto de partida, el mismo dibujo de la clase de load balancing pero mirando adentro de la app: tiene módulos.
+    Cada color de pedido es una ruta distinta. Todas llegan al mismo programa.
+    Subir el tráfico: con poca carga, una copia alcanza y sobra.
+    Aclarar que el monolito no es "lo malo": es lo más simple, y muchas veces es lo correcto.
+    Pregunta para la clase: ¿qué pasa si solo pagos recibe mucho tráfico, por ejemplo un día de ofertas?
   </aside>
 </section>
 
@@ -55,24 +74,68 @@
   <div class="kicker red">Límite</div>
   <h2>Se satura una parte, escalás todo</h2>
   <div class="demo">
-    <div class="stage"><svg class="sim"></svg></div>
-    <div class="panel"></div>
+    <div class="stage">
+      <svg class="sim"></svg>
+      <div class="legend"><span><i style="background:#60a5fa"></i>/usuarios</span><span><i style="background:#fb923c"></i>/ordenes</span><span><i style="background:#2dd4bf"></i>/pagos</span></div>
+    </div>
+    <div class="panel">
+      <p class="lead">Llega un pico de <b>pagos</b>. La única forma de atenderlo es <b>clonar la app entera</b>.</p>
+      <div class="actions">
+        <button class="btn primary" data-act="spike">⚡ Pico en /pagos</button>
+        <button class="btn" data-act="add">＋ Copia</button>
+        <button class="btn" data-act="remove">－ Copia</button>
+        <button class="btn ghost" data-act="reset">↺</button>
+      </div>
+      <div class="mstats" data-fields="ok,err,resources"></div>
+      <ul class="points">
+        <li class="fragment">Cada copia carga <b>los tres módulos</b>, aunque solo pagos esté saturado.</li>
+        <li class="fragment">Pagamos memoria y CPU para usuarios y órdenes que <b>nadie está pidiendo</b>.</li>
+      </ul>
+    </div>
   </div>
   <aside class="notes">
-    Pendiente.
+    Tocar "Pico en /pagos": llegan muchos más pedidos verde agua y cada uno tarda más. La copia se llena: cola y errores 503.
+    Agregar copias hasta que los errores desaparezcan (con tres alcanza). Mirar "Recursos": cada copia suma tres módulos.
+    Remarcar que el LB resuelve el pico, pero a costa de multiplicar todo.
+    Pregunta para la clase: de lo que agregamos, ¿cuánto está ocioso?
   </aside>
 </section>
 
 <!-- ============ 3. limits ============ -->
 <section data-scene="limits">
   <div class="kicker red">Límite</div>
-  <h2>Cambiás una parte, deployás todo</h2>
+  <h2><span data-mode="deploy">Cambiás una parte, deployás todo</span><span data-mode="falla" hidden>Falla una parte, cae todo</span></h2>
   <div class="demo">
-    <div class="stage"><svg class="sim"></svg></div>
-    <div class="panel"></div>
+    <div class="stage">
+      <svg class="sim"></svg>
+      <div class="legend"><span><i style="background:#60a5fa"></i>/usuarios</span><span><i style="background:#fb923c"></i>/ordenes</span><span><i style="background:#2dd4bf"></i>/pagos</span></div>
+    </div>
+    <div class="panel">
+      <div class="seg" data-group="mode">
+        <button data-v="deploy" class="active">Un cambio</button>
+        <button data-v="falla">Un bug</button>
+      </div>
+      <p class="mode-text" data-mode="deploy">Cambia <b>una línea de pagos</b>. Para que llegue a producción hay que redeployar la app entera, copia por copia.</p>
+      <p class="mode-text" data-mode="falla" hidden>Un bug en <b>pagos</b> cuelga el proceso. Todas las copias corren el mismo código: <b>se caen todas</b>.</p>
+      <div class="actions">
+        <button class="btn primary" data-act="deploy" data-mode="deploy">🚀 Cambiar algo de Pagos</button>
+        <button class="btn primary" data-act="crash" data-mode="falla" hidden>💥 Bug en Pagos</button>
+        <button class="btn" data-act="recover" data-mode="falla" hidden>🩹 Recuperar</button>
+        <button class="btn ghost" data-act="reset">↺</button>
+      </div>
+      <div class="box"><div class="label">Se redeployaron</div><div class="touched">—</div></div>
+      <div class="mstats" data-fields="ok,err,upCopies"></div>
+      <ul class="points">
+        <li class="fragment" data-mode="deploy">No hay caída: el deploy es gradual, como vimos con el LB. El costo es <b>coordinar y arriesgar todo</b> por un cambio chico.</li>
+        <li class="fragment" data-mode="deploy">Si el cambio trae un bug, el bug llega a <b>todas las copias</b>.</li>
+      </ul>
+    </div>
   </div>
   <aside class="notes">
-    Pendiente.
+    Modo "Un cambio": tocar el botón. Se ve cómo arranca una copia nueva y sale una vieja, una por una. No hay errores: es el rolling deploy de la clase anterior.
+    Lo que hay que mirar es "Se redeployaron": cambió pagos, pero salieron de nuevo usuarios y órdenes. Hay que probar todo, coordinar con todos los equipos y esperar el deploy completo.
+    Modo "Un bug": tocar el botón. Las copias se caen una tras otra, porque todas tienen el mismo bug. El LB no tiene a dónde mandar: errores para todos, incluso para quien solo quería ver su usuario.
+    Pregunta para la clase: ¿qué tendría que pasar para que un bug en pagos no afecte a usuarios?
   </aside>
 </section>
 

@@ -296,6 +296,42 @@ test('micro: separar envíos obliga a deployar la app web', async page => {
 
 /* ---------- escenas ---------- */
 
+const click = (sec, sel) => { const b = sec.querySelector(sel); if (!b) throw new Error('no existe ' + sel); b.click(); };
+
+test('escena 2: el pico da errores y la copia los baja', async page => {
+  await open(page);
+  const r = await evalScene(page, 2, `sec => {
+    const sim = sec._scene.sim;
+    (${click})(sec, '[data-act=spike]');
+    sim.fastForward(6);
+    const a = sim.window(6).err;
+    (${click})(sec, '[data-act=add]'); (${click})(sec, '[data-act=add]');
+    sim.fastForward(1);
+    sim.fastForward(4);
+    return { a, b: sim.window(4).err, res: sim.resources(), stat: sec.querySelector('.mstats [data-f=resources]').textContent };
+  }`);
+  check(r.a > 0, `errores en el pico=${r.a}`);
+  check(r.b === 0, `errores con 3 copias=${r.b}`);
+  check(r.res === 9 && r.stat === '9', `recursos=${r.res} widget=${r.stat}`);
+});
+
+test('escena 3: deploy y falla', async page => {
+  await open(page);
+  const r = await evalScene(page, 3, `sec => {
+    const sim = sec._scene.sim;
+    (${click})(sec, '[data-act=deploy]');
+    sim.fastForward(10);
+    const count = sim.deployCount('monolith'), touched = sec.querySelector('.touched').textContent;
+    (${click})(sec, '.seg [data-v=falla]');
+    (${click})(sec, '[data-act=crash]');
+    sim.fastForward(2);
+    return { count, touched, up: sim.upCopies() };
+  }`);
+  check(r.count === 1, `deploys=${r.count}`);
+  check(/Usuarios.*Órdenes.*Pagos/.test(r.touched), `touched=${r.touched}`);
+  check(r.up === 0, `copias arriba=${r.up}`);
+});
+
 /* ---------- runner ---------- */
 
 (async () => {

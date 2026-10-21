@@ -172,5 +172,22 @@
     });
   }
 
-  window.Widgets = { stats, chart, histogram, strip, fmtLat };
+  // Contadores de MicroSim: ok/err/calls en la ventana; resources, upCopies y deploys del estado actual
+  const MLABELS = { ok: 'OK (5 s)', err: 'Errores (5 s)', resources: 'Recursos', upCopies: 'Copias arriba', deploys: 'Deploys', calls: 'Llamadas internas' };
+  function mstats(el, sim, fields, win = 5) {
+    el.innerHTML = `<div class="stats">${fields.map(f => `<div class="stat s-${f}"><b data-f="${f}">0</b><span>${MLABELS[f]}</span></div>`).join('')}</div>`;
+    const update = () => {
+      const w = sim.window(win);
+      const v = {
+        ok: w.ok, err: w.err, resources: sim.resources(), upCopies: sim.upCopies(),
+        deploys: sim.groups.reduce((a, g) => a + g.deploys, 0), calls: w.calls
+      };
+      fields.forEach(f => { el.querySelector(`[data-f="${f}"]`).textContent = v[f]; });
+    };
+    throttle(sim, 0.25, update);
+    sim.on('change', update);
+    update();
+  }
+
+  window.Widgets = { mstats, stats, chart, histogram, strip, fmtLat };
 })();

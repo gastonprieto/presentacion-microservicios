@@ -54,11 +54,63 @@
     return life(sim);
   };
 
+  // Crea un MicroSim sobre <svg class="sim"> y conecta .mstats si existe
+  function msetup(slide, opts) {
+    const sim = new MicroKit.MicroSim(slide.querySelector('svg.sim'), opts);
+    const st = slide.querySelector('.mstats');
+    if (st) Widgets.mstats(st, sim, st.dataset.fields.split(','), +(st.dataset.window || 5));
+    return sim;
+  }
+
+  // Slider de tráfico: <input type=range> + .rate-out
+  function rateSlider(slide, sim) {
+    const range = slide.querySelector('input[type=range]'), out = slide.querySelector('.rate-out');
+    const sync = () => { out.textContent = `${range.value} req/s`; };
+    range.addEventListener('input', () => { sim.setRate(+range.value); sync(); });
+    sim.on('reset', () => { range.value = sim.o.rate; sync(); });
+    sync();
+  }
+
+  const SPIKE = sim => { sim.setMix('/pagos', 6); sim.setWork('/pagos', 0.8); sim.setRate(8); };
+
+  /* ---------- 1. una app, una dirección ---------- */
+
+  S.monolith = slide => {
+    const sim = msetup(slide, { rate: 3 });
+    rateSlider(slide, sim);
+    return life(sim);
+  };
+
+  /* ---------- 2. se satura una parte, escalás todo ---------- */
+
+  S.scale = slide => {
+    const sim = msetup(slide, { rate: 3 });
+    on(slide, '[data-act=spike]', () => SPIKE(sim));
+    on(slide, '[data-act=add]', () => sim.addCopy());
+    on(slide, '[data-act=remove]', () => sim.removeCopy());
+    on(slide, '[data-act=reset]', () => sim.reset());
+    return life(sim);
+  };
+
+  /* ---------- 3. cambiás una parte, deployás todo / falla una parte, cae todo ---------- */
+
+  S.limits = slide => {
+    const sim = msetup(slide, { rate: 4, copies: 2 });
+    const touched = slide.querySelector('.touched');
+    const label = id => (MicroKit.SERVICES.find(s => s.id === id) || { label: id }).label;
+    sim.on('deploy', e => { touched.innerHTML = e.touched.map(id => `<b>${label(id)}</b>`).join(' · '); });
+    sim.on('reset', () => { touched.textContent = '—'; });
+    showMode(slide, 'deploy');
+    seg(slide, 'mode', v => { showMode(slide, v); sim.reset(); });
+    on(slide, '[data-act=deploy]', () => sim.deploy('monolith'));
+    on(slide, '[data-act=crash]', () => sim.crash('pagos'));
+    on(slide, '[data-act=recover]', () => sim.recover('pagos'));
+    on(slide, '[data-act=reset]', () => sim.reset());
+    return life(sim);
+  };
+
   /* ---------- escenas (pendientes) ---------- */
 
-  S.monolith = slide => ({ start() {}, stop() {} });
-  S.scale = slide => ({ start() {}, stop() {} });
-  S.limits = slide => ({ start() {}, stop() {} });
   S.split = slide => ({ start() {}, stop() {} });
   S.gains = slide => ({ start() {}, stop() {} });
   S.direct = slide => ({ start() {}, stop() {} });

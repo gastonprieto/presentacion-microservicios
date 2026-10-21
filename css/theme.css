@@ -361,3 +361,5 @@ html.mobile .speed-ctl span { min-width: 34px; }
 .microsim .worker.down .cell { fill: #3a1018; stroke: var(--red); }
 .microsim .worker.deploying .cell { stroke: var(--yellow); }
 .microsim .t-rep { fill: #cbd5e1; font: 600 10px var(--mono); }
+.touched { font-size: 16px; color: #cbd5e1; margin-top: 4px; }
+.touched b { color: var(--yellow); }

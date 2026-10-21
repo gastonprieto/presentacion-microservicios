@@ -94,7 +94,7 @@
       svgEl('text', { x: 0, y: -3, class: 't-title small', 'text-anchor': 'middle' }, this.client.g).textContent = '💻 Cliente';
       this.client.sub = svgEl('text', { x: 0, y: 13, class: 't-sub', 'text-anchor': 'middle' }, this.client.g);
       this.lb = v ? { x: W / 2, y: 140, hw: 80, hh: 24 } : { x: 330, y: H / 2, hw: 72, hh: 30 };
-      this.lb.g = svgEl('g', { class: 'lb' }, this.gNodes);
+      this.lb.g = svgEl('g', { class: 'lb', transform: `translate(${this.lb.x},${this.lb.y})` }, this.gNodes);
       svgEl('rect', { class: 'node-box', x: -this.lb.hw, y: -this.lb.hh, width: this.lb.hw * 2, height: this.lb.hh * 2, rx: 10 }, this.lb.g);
       svgEl('text', { x: 0, y: 5, class: 't-title small', 'text-anchor': 'middle' }, this.lb.g).textContent = '⚖ LB';
       this.groups = [];
@@ -171,10 +171,10 @@
       if (this.mono) {
         const ws = this.mono.workers, n = ws.length;
         ws.forEach((w, i) => {
-          if (v) set(w, { x: W * (i + 0.5) / n, y: 330, hw: Math.min(150, W / n / 2 - 6), hh: 64 });
+          if (v) set(w, { x: W * (i + 0.5) / n, y: 330, hw: Math.min(150, W / n / 2 - 6), hh: 46 });
           else {
             const gap = Math.min(160, (H - 40) / n);
-            set(w, { x: 650, y: H / 2 + (i - (n - 1) / 2) * gap, hw: 160, hh: Math.min(62, gap / 2 - 8) });
+            set(w, { x: 650, y: H / 2 + (i - (n - 1) / 2) * gap, hw: 160, hh: Math.min(48, gap / 2 - 8) });
           }
         });
       }
