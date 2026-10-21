@@ -332,6 +332,37 @@ test('escena 3: deploy y falla', async page => {
   check(r.up === 0, `copias arriba=${r.up}`);
 });
 
+test('escena 4: partir cambia la topología', async page => {
+  await open(page);
+  const r = await evalScene(page, 4, `sec => {
+    const sim = sec._scene.sim;
+    const before = sim.o.topology;
+    (${click})(sec, '[data-act=split]');
+    sim.fastForward(3);
+    const after = { topo: sim.o.topology, svcs: sim.groups.filter(g => g.kind === 'svc').length, ok: sim.window(2).ok };
+    (${click})(sec, '[data-act=reset]');
+    return { before, after, back: sim.o.topology };
+  }`);
+  check(r.before === 'monolith' && r.back === 'monolith', `antes=${r.before} después de ↺=${r.back}`);
+  check(r.after.topo === 'direct' && r.after.svcs === 3 && r.after.ok > 0, JSON.stringify(r.after));
+});
+
+test('escena 5: falla aislada', async page => {
+  await open(page);
+  const r = await evalScene(page, 5, `sec => {
+    const sim = sec._scene.sim;
+    (${click})(sec, '[data-act=crash]');
+    sim.fastForward(1);
+    sim.fastForward(5);
+    const w = sim.window(5);
+    (${click})(sec, '[data-act=scale]');
+    return { w, reps: sim.replicas('pagos') };
+  }`);
+  check(r.w.byService.usuarios > 0 && r.w.byService.ordenes > 0, JSON.stringify(r.w.byService));
+  check(r.w.err > 0, `err=${r.w.err}`);
+  check(r.reps === 2, `réplicas de pagos=${r.reps}`);
+});
+
 /* ---------- runner ---------- */
 
 (async () => {

@@ -144,11 +144,29 @@
   <div class="kicker purple">Partir</div>
   <h2>Cada parte, su propio servicio</h2>
   <div class="demo">
-    <div class="stage"><svg class="sim"></svg></div>
-    <div class="panel"></div>
+    <div class="stage">
+      <svg class="sim"></svg>
+      <div class="legend"><span><i style="background:#60a5fa"></i>/usuarios</span><span><i style="background:#fb923c"></i>/ordenes</span><span><i style="background:#2dd4bf"></i>/pagos</span></div>
+    </div>
+    <div class="panel">
+      <p class="lead">Los módulos del monolito pasan a ser <b>programas separados</b>, que se hablan por la red.</p>
+      <div class="actions">
+        <button class="btn primary" data-act="split">✂ Partir</button>
+        <button class="btn ghost" data-act="reset">↺</button>
+      </div>
+      <ul class="points">
+        <li class="fragment">Cada servicio tiene <b>su código, su deploy y su escalado</b>.</li>
+        <li class="fragment">Cada uno puede tener <b>su propio load balancer</b> y sus réplicas.</li>
+        <li class="fragment">Idealmente, <b>sus propios datos</b>: nadie más toca su base.</li>
+        <li class="fragment">Suele seguir la forma de los equipos: un equipo, uno o pocos servicios.</li>
+      </ul>
+    </div>
   </div>
   <aside class="notes">
-    Pendiente.
+    Tocar "Partir": el monolito se separa en tres servicios. Cada uno recibe solo las rutas de su color.
+    Remarcar que ahora son procesos distintos, en máquinas distintas: lo que antes era una llamada a una función ahora es un pedido por la red.
+    Mencionar los datos: si dos servicios comparten la base, siguen acoplados.
+    Pregunta para la clase: ¿qué se compartía antes y ahora no? ¿Qué cosas se vuelven más difíciles?
   </aside>
 </section>
 
@@ -157,11 +175,34 @@
   <div class="kicker green">Ganancia</div>
   <h2>Escalar, deployar y fallar por separado</h2>
   <div class="demo">
-    <div class="stage"><svg class="sim"></svg></div>
-    <div class="panel"></div>
+    <div class="stage">
+      <svg class="sim"></svg>
+      <div class="legend"><span><i style="background:#60a5fa"></i>/usuarios</span><span><i style="background:#fb923c"></i>/ordenes</span><span><i style="background:#2dd4bf"></i>/pagos</span></div>
+    </div>
+    <div class="panel">
+      <p class="lead">Las mismas pruebas de antes, ahora <b>servicio por servicio</b>.</p>
+      <div class="actions">
+        <button class="btn primary" data-act="spike">⚡ Pico en /pagos</button>
+        <button class="btn" data-act="scale">＋ Réplica de Pagos</button>
+        <button class="btn" data-act="deploy">🚀 Deploy de Órdenes</button>
+        <button class="btn" data-act="crash">💥 Bug en Pagos</button>
+        <button class="btn" data-act="recover">🩹 Recuperar</button>
+        <button class="btn ghost" data-act="reset">↺</button>
+      </div>
+      <div class="mstats" data-fields="ok,err,resources"></div>
+      <ul class="points">
+        <li class="fragment">El pico se absorbe con <b>réplicas solo de pagos</b>: 5 unidades contra 9 del monolito.</li>
+        <li class="fragment">Un deploy de órdenes <b>no toca</b> a usuarios ni a pagos.</li>
+        <li class="fragment">Si pagos se cae, <b>el resto sigue andando</b>.</li>
+      </ul>
+    </div>
   </div>
   <aside class="notes">
-    Pendiente.
+    Repetir las demos de las slides anteriores:
+    1) "Pico en /pagos" y después dos veces "＋ Réplica de Pagos": los errores desaparecen y Recursos queda en 5 (con el monolito eran 9).
+    2) "Deploy de Órdenes": solo órdenes muestra el deploy; los otros dos ni se enteran.
+    3) "Bug en Pagos": pagos se pone rojo, pero los pedidos azules y naranjas siguen llegando bien.
+    Pregunta para la clase: si ahora todo es mejor, ¿por qué no partimos todo siempre? (preparar la próxima slide)
   </aside>
 </section>
 

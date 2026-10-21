@@ -109,10 +109,36 @@
     return life(sim);
   };
 
+  /* ---------- 4. cada parte, su propio servicio ---------- */
+
+  S.split = slide => {
+    const sim = msetup(slide, { rate: 4 });
+    const btn = slide.querySelector('[data-act=split]');
+    on(slide, '[data-act=split]', () => {
+      if (sim.o.topology !== 'monolith') return;
+      sim.reset({ rate: 4, topology: 'direct' });
+      sim.groups.forEach((g, i) => { g.scale = 0; gsap.to(g, { scale: 1, duration: 0.5, delay: 0.12 * i, ease: 'back.out(1.7)' }); });
+      btn.disabled = true;
+    });
+    on(slide, '[data-act=reset]', () => { sim.reset({ rate: 4 }); btn.disabled = false; });
+    return life(sim);
+  };
+
+  /* ---------- 5. escalar, deployar y fallar por separado ---------- */
+
+  S.gains = slide => {
+    const sim = msetup(slide, { rate: 3, topology: 'direct' });
+    on(slide, '[data-act=spike]', () => SPIKE(sim));
+    on(slide, '[data-act=scale]', () => sim.setReplicas('pagos', sim.replicas('pagos') + 1));
+    on(slide, '[data-act=deploy]', () => sim.deploy('ordenes'));
+    on(slide, '[data-act=crash]', () => sim.crash('pagos'));
+    on(slide, '[data-act=recover]', () => sim.recover('pagos'));
+    on(slide, '[data-act=reset]', () => sim.reset());
+    return life(sim);
+  };
+
   /* ---------- escenas (pendientes) ---------- */
 
-  S.split = slide => ({ start() {}, stop() {} });
-  S.gains = slide => ({ start() {}, stop() {} });
   S.direct = slide => ({ start() {}, stop() {} });
   S.appweb = slide => ({ start() {}, stop() {} });
   S.cracks = slide => ({ start() {}, stop() {} });

@@ -363,3 +363,4 @@ html.mobile .speed-ctl span { min-width: 34px; }
 .microsim .t-rep { fill: #cbd5e1; font: 600 10px var(--mono); }
 .touched { font-size: 16px; color: #cbd5e1; margin-top: 4px; }
 .touched b { color: var(--yellow); }
+.microsim .t-host.small { font-size: 10px; }

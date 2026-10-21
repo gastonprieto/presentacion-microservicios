@@ -180,10 +180,10 @@
       }
       const svcs = this.groups.filter(g => g.kind === 'svc'), n = svcs.length, sx = this.app ? 725 : 660;
       svcs.forEach((g, i) => {
-        if (v) set(g, { x: W * (i + 0.5) / n, y: 340, hw: Math.min(92, W / n / 2 - 5), hh: 62 });
+        if (v) set(g, { x: W * (i + 0.5) / n, y: 340, hw: Math.min(92, W / n / 2 - 5), hh: 46 });
         else {
           const gap = Math.min(150, (H - 40) / n);
-          set(g, { x: sx, y: H / 2 + (i - (n - 1) / 2) * gap, hw: this.app ? 130 : 150, hh: Math.min(54, gap / 2 - 10) });
+          set(g, { x: sx, y: H / 2 + (i - (n - 1) / 2) * gap, hw: this.app ? 130 : 150, hh: Math.min(42, gap / 2 - 10) });
         }
       });
       if (this.app) set(this.app, v ? { x: W / 2, y: 160, hw: 120, hh: 46 } : { x: 380, y: H / 2, hw: 115, hh: 62 });
@@ -548,8 +548,10 @@
         g.workers.forEach((w, i) => this._drawWorker(g, w, i));
       });
       this.hosts.forEach(h => {
-        const P = cubic(edge(this.client, h.g, this.v), edge(h.g, this.client, this.v), 0.55, this.v);
-        h.t.setAttribute('x', P.x); h.t.setAttribute('y', P.y - 6);
+        // en celular las curvas salen juntas del cliente: la dirección va arriba de cada servicio
+        const P = this.v ? { x: h.g.x, y: h.g.y - h.g.hh * h.g.scale - 8 } : cubic(edge(this.client, h.g, this.v), edge(h.g, this.client, this.v), 0.55, this.v);
+        h.t.setAttribute('x', P.x); h.t.setAttribute('y', P.y - (this.v ? 0 : 6));
+        h.t.classList.toggle('small', this.v);
         h.t.textContent = `${h.g.id}.${this.o.host}`;
       });
       if (this.o.topology === 'direct') {
