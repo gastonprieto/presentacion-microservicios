@@ -249,6 +249,51 @@ test('micro: split repetido se ignora', async page => {
   check(r === 1, `servicios envios=${r}`);
 });
 
+test('micro: appweb arma la página con tres llamadas', async page => {
+  await open(page);
+  const r = await engine(page, `svg => {
+    const s = new MicroKit.MicroSim(svg, { topology: 'appweb' });
+    s.fastForward(10);
+    const w = s.window(10);
+    return { w, inv: (${INV})(w) };
+  }`);
+  check(r.w.ok > 10, `ok=${r.w.ok}`);
+  const pages = r.w.total.ok + r.w.total.err;
+  check(Math.abs(r.w.total.calls - 3 * pages) <= 3 * (r.w.inFlight + 1), `calls=${r.w.total.calls} páginas=${pages} enVuelo=${r.w.inFlight}`);
+  check(r.inv, `invariante: ${JSON.stringify(r.w)}`);
+});
+
+test('micro: se cae la app web, cae todo', async page => {
+  await open(page);
+  const r = await engine(page, `svg => {
+    const s = new MicroKit.MicroSim(svg, { topology: 'appweb' });
+    s.fastForward(2);
+    s.crash('appweb');
+    s.fastForward(4);
+    const svcsUp = s.groups.filter(g => g.kind === 'svc').every(g => g.workers.every(w => w.state === 'up'));
+    return { w: s.window(3), svcsUp };
+  }`);
+  check(r.w.ok === 0 && r.w.err > 0, `ok=${r.w.ok} err=${r.w.err}`);
+  check(r.svcsUp, 'algún servicio quedó caído');
+});
+
+test('micro: separar envíos obliga a deployar la app web', async page => {
+  await open(page);
+  const r = await engine(page, `svg => {
+    const s = new MicroKit.MicroSim(svg, { topology: 'appweb' });
+    let touched = null;
+    s.on('deploy', e => { touched = e.touched; });
+    s.fastForward(2);
+    s.split('envios');
+    s.fastForward(6);
+    return { count: s.deployCount('appweb'), code: s.appwebCode(), touched, w: s.window(7) };
+  }`);
+  check(r.count === 1, `deploys de la app web=${r.count}`);
+  check(r.code.length === 4, `código=${JSON.stringify(r.code)}`);
+  check(JSON.stringify(r.touched) === '["appweb"]', `touched=${JSON.stringify(r.touched)}`);
+  check(r.w.err === 0 && r.w.e404 === 0, `err=${r.w.err} e404=${r.w.e404}`);
+});
+
 /* ---------- escenas ---------- */
 
 /* ---------- runner ---------- */

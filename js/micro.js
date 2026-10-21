@@ -19,8 +19,9 @@
   const DEFAULTS = {
     topology: 'monolith', seed: 1, rate: 3, mix: { '/usuarios': 1, '/ordenes': 1, '/pagos': 1 },
     copies: 1, capacity: 3, maxQueue: 6, workTime: { '/usuarios': 0.4, '/ordenes': 0.4, '/pagos': 0.4 },
-    services: null, host: 'tienda.com', travel: 0.35, pops: true
+    services: null, host: 'tienda.com', travel: 0.35, pops: true, appwebInstances: 2
   };
+  const APP_COLOR = '#7dd3fc';
 
   const clone = x => JSON.parse(JSON.stringify(x));
 
@@ -101,6 +102,10 @@
         this.mono = this._group({ id: 'monolith', kind: 'mono', label: 'Monolito', icon: '🖥', serves: ['/'] }, this.o.copies);
       } else {
         this.mono = null;
+        if (this.o.topology === 'appweb') {
+          this.app = this._group({ id: 'appweb', kind: 'app', label: 'App web', icon: '🖥', color: APP_COLOR }, this.o.appwebInstances);
+          this.code = [this.o.services.map(d => d.id)];
+        } else this.app = null;
         this.o.services.forEach(d => this._group(Object.assign({ kind: 'svc' }, d), d.replicas || 1));
       }
       // qué host conoce el cliente para cada ruta (en 'direct')
@@ -173,14 +178,15 @@
           }
         });
       }
-      const svcs = this.groups.filter(g => g.kind === 'svc'), n = svcs.length;
+      const svcs = this.groups.filter(g => g.kind === 'svc'), n = svcs.length, sx = this.app ? 725 : 660;
       svcs.forEach((g, i) => {
         if (v) set(g, { x: W * (i + 0.5) / n, y: 340, hw: Math.min(92, W / n / 2 - 5), hh: 62 });
         else {
           const gap = Math.min(150, (H - 40) / n);
-          set(g, { x: 660, y: H / 2 + (i - (n - 1) / 2) * gap, hw: 150, hh: Math.min(54, gap / 2 - 10) });
+          set(g, { x: sx, y: H / 2 + (i - (n - 1) / 2) * gap, hw: this.app ? 130 : 150, hh: Math.min(54, gap / 2 - 10) });
         }
       });
+      if (this.app) set(this.app, v ? { x: W / 2, y: 160, hw: 120, hh: 46 } : { x: 380, y: H / 2, hw: 115, hh: 62 });
       this._relink();
     }
 
@@ -193,6 +199,10 @@
       if (this.mono) {
         if (this._showLb()) { L(this.client, this.lb); this.mono.workers.forEach(w => L(this.lb, w)); }
         else this.mono.workers.forEach(w => L(this.client, w));
+      }
+      if (this.app) {
+        L(this.client, this.app);
+        this.groups.filter(g => g.kind === 'svc').forEach(g => L(this.app, g));
       }
       this.hosts = [];
       if (this.o.topology === 'direct') {
@@ -232,7 +242,41 @@
       } else if (this.o.topology === 'direct') {
         const g = this._target(this._owner(req.path, this.clientMap));
         this._toGroup(req, g, this.client, color);
+      } else if (this.app) {
+        req.path = '/';
+        const ups = this.app.workers.filter(w => w.state === 'up');
+        const inst = ups.length ? ups[this.app.rr++ % ups.length] : null;
+        this._fly(this.client, this.app, C.req, () => this._atApp(req, inst));
       }
+    }
+
+    // La app web llama a cada servicio de su versión de código, espera todas las respuestas y arma la página
+    _atApp(req, inst) {
+      const app = this.app;
+      if (!inst || inst.state === 'down') { this._pop(app, '✕ conexión', C.err); this._finish(req, 'conn'); return; }
+      const ids = this.code[Math.min(inst.version, this.code.length - 1)];
+      let left = ids.length, bad = false;
+      inst.active++;
+      ids.forEach(id => {
+        const g = this._target(id), call = { path: g.serves[0] };
+        this.c.calls++;
+        this._toGroup(call, g, app, ROUTE_COLORS[call.path] || C.req, st => {
+          if (st !== 200) bad = true;
+          this._fly(g, app, st === 200 ? C.ok : C.err, () => {
+            if (--left) return;
+            inst.active = Math.max(0, inst.active - 1);
+            if (inst.state === 'down') { this._finish(req, 'conn'); return; }
+            const ok = !bad;
+            this._pop(app, ok ? '✔ página' : '502', ok ? C.ok : C.err);
+            this._fly(app, this.client, ok ? C.ok : C.err, () => this._finish(req, ok ? 200 : 502), this.o.travel * 0.8);
+          }, this.o.travel * 0.8);
+        });
+      });
+    }
+
+    appwebCode() {
+      if (!this.app) return [];
+      return this.code[this.code.length - 1].map(id => `GET ${id}.interno${this._target(id).serves[0]}`);
     }
 
     // Dueño de una ruta: el prefijo más largo que coincide (en un mapa ruta → id)
@@ -337,11 +381,19 @@
     // Parte un servicio: Envíos sale de Órdenes con su propio host. El cliente viejo sigue yendo a Órdenes (404).
     split(id) {
       if (id !== 'envios' || this._target('envios') || this.mono) return false;
+      if (this.app && this.app.deploying) return false;
       const def = { id: 'envios', label: 'Envíos', icon: '📦', serves: ['/ordenes/envios'], color: ROUTE_COLORS['/ordenes/envios'] };
       this.o.services.push(def);
-      this.o.mix['/ordenes/envios'] = 1;
       const g = this._group(Object.assign({ kind: 'svc' }, def), 1, true);
-      this._layout(true);
+      if (this.app) {
+        // la app web no sabe nada de Envíos hasta que alguien cambia su código y la deploya
+        this.code.push(this.code[this.code.length - 1].concat('envios'));
+        this._layout(true);
+        this.deploy('appweb');
+      } else {
+        this.o.mix['/ordenes/envios'] = 1;
+        this._layout(true);
+      }
       this.emit('change');
       return g;
     }
@@ -520,7 +572,8 @@
       g.title.setAttribute('y', -g.hh + 20); g.sub.setAttribute('y', -g.hh + 36);
       g.title.textContent = `${g.icon} ${g.label}${g.deploys ? ` · v${g.deploys + 1}` : ''}`;
       const n = g.workers.length;
-      g.sub.textContent = down ? 'caído' : g.deploying ? 'deploy…' : narrow ? `×${n}` : n > 1 ? `${n} réplicas · con su LB` : '1 réplica';
+      const unit = g.kind === 'app' ? ['instancia', 'instancias'] : ['réplica', 'réplicas'];
+      g.sub.textContent = down ? 'caído' : g.deploying ? 'deploy…' : narrow ? `×${n}` : n > 1 ? `${n} ${unit[1]} · con su LB` : `1 ${unit[0]}`;
       g.workers.forEach(w => { w.x = g.x; w.y = g.y; w.hw = g.hw; w.hh = g.hh; });
     }
 
@@ -529,7 +582,7 @@
         const n = g.workers.length, cw = Math.min(34, (g.hw * 2 - 30) / n - 4), x = -g.hw + 16 + i * (cw + 4);
         w.box.setAttribute('x', x); w.box.setAttribute('y', g.hh - 22); w.box.setAttribute('width', cw); w.box.setAttribute('height', 15);
         w.dots.setAttribute('x', x + cw / 2); w.dots.setAttribute('y', g.hh - 11);
-        w.dots.textContent = w.state === 'down' ? '✕' : w.state === 'starting' ? '…' : w.queue.length ? `+${w.queue.length}` : w.active;
+        w.dots.textContent = w.state === 'down' ? '✕' : w.state === 'starting' ? '…' : g.kind === 'app' ? `v${w.version + 1}` : w.queue.length ? `+${w.queue.length}` : w.active;
         w.g.classList.toggle('down', w.state === 'down');
         w.g.classList.toggle('deploying', w.state === 'starting' || w.state === 'draining');
         return;
