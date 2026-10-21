@@ -107,6 +107,77 @@ test('micro: mínimo una copia', async page => {
   check(r.inv, `invariante: ${JSON.stringify(r.w)}`);
 });
 
+test('micro: deploy del monolito toca todo y no corta', async page => {
+  await open(page);
+  const r = await engine(page, `svg => {
+    const s = new MicroKit.MicroSim(svg, { copies: 3 });
+    let touched = null, min = Infinity;
+    s.on('deploy', e => { touched = e.touched; });
+    s.on('tick', () => { min = Math.min(min, s.upCopies()); });
+    s.deploy('monolith');
+    s.fastForward(8);
+    return { touched, min, count: s.deployCount('monolith'), deploying: s.deploying(), up: s.upCopies(), w: s.window(8) };
+  }`);
+  check(JSON.stringify(r.touched) === '["usuarios","ordenes","pagos"]', `touched=${JSON.stringify(r.touched)}`);
+  check(r.min >= 2, `mínimo de copias arriba=${r.min}`);
+  check(r.count === 1 && !r.deploying && r.up === 3, `count=${r.count} deploying=${r.deploying} up=${r.up}`);
+  check(r.w.err === 0, `err=${r.w.err}`);
+});
+
+test('micro: deploy repetido se ignora', async page => {
+  await open(page);
+  const r = await engine(page, `svg => {
+    const s = new MicroKit.MicroSim(svg, { copies: 2 });
+    const a = s.deploy('monolith'), b = s.deploy('monolith');
+    s.fastForward(8);
+    return { same: a === b, count: s.deployCount('monolith'), copies: s.copies.length };
+  }`);
+  check(r.same, 'devolvió otra Promise');
+  check(r.count === 1 && r.copies === 2, `count=${r.count} copias=${r.copies}`);
+});
+
+test('micro: deploy sobrevive a stop/start', async page => {
+  await open(page);
+  const r = await engine(page, `svg => {
+    const s = new MicroKit.MicroSim(svg, { copies: 2 });
+    s.deploy('monolith');
+    s.fastForward(1); s.stop(); s.start(); s.fastForward(8); s.stop();
+    return { deploying: s.deploying(), up: s.upCopies() };
+  }`);
+  check(!r.deploying && r.up === 2, `deploying=${r.deploying} up=${r.up}`);
+});
+
+test('micro: reset aborta deploy', async page => {
+  await open(page);
+  const r = await engine(page, `svg => {
+    const s = new MicroKit.MicroSim(svg, { copies: 2 });
+    s.deploy('monolith');
+    s.fastForward(1);
+    s.reset();
+    s.fastForward(8);
+    return { deploying: s.deploying(), ghosts: svg.querySelectorAll('.copy.deploying').length, copies: s.copies.length, count: s.deployCount('monolith') };
+  }`);
+  check(!r.deploying && r.ghosts === 0 && r.copies === 2 && r.count === 0, JSON.stringify(r));
+});
+
+test('micro: falla de pagos tira todas las copias', async page => {
+  await open(page);
+  const r = await engine(page, `svg => {
+    const s = new MicroKit.MicroSim(svg, { copies: 3 });
+    s.fastForward(2);
+    s.crash('pagos');
+    s.fastForward(4);
+    const a = { up: s.upCopies(), w: s.window(3) };
+    s.recover('pagos');
+    s.fastForward(4);
+    return { a, b: s.window(3), inv: (${INV})(s.window(3)) };
+  }`);
+  check(r.a.up === 0, `copias arriba=${r.a.up}`);
+  check(r.a.w.ok === 0 && r.a.w.err > 0, `ok=${r.a.w.ok} err=${r.a.w.err}`);
+  check(r.b.ok > 0, `después de recuperar ok=${r.b.ok}`);
+  check(r.inv, 'invariante');
+});
+
 /* ---------- escenas ---------- */
 
 /* ---------- runner ---------- */

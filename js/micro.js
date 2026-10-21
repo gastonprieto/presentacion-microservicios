@@ -293,6 +293,80 @@
       q.forEach(x => x.done('conn'));
     }
 
+    _target(id) { return id === 'monolith' ? this.mono : this.groups.find(g => g.id === id); }
+
+    // Deploy gradual con una copia de más: arranca una nueva, saca una vieja cuando terminó lo suyo, y así.
+    // Nunca quedan menos workers en marcha que al empezar. Llamarlo de nuevo mientras corre devuelve la misma Promise.
+    deploy(id) {
+      const g = this._target(id);
+      if (!g) return Promise.resolve();
+      if (g.deploying) return g.deploying;
+      const gen = this.gen, old = g.workers.slice();
+      this.emit('deploy', { target: id, touched: g.kind === 'mono' ? MODULES.slice() : [id] });
+      g.deploying = new Promise(resolve => {
+        const finish = () => {
+          if (gen !== this.gen) return resolve();
+          g.deploys++;
+          g.deploying = null;
+          this.emit('change');
+          resolve();
+        };
+        const step = i => {
+          if (gen !== this.gen) return resolve();
+          const prev = old[i];
+          if (!prev) return finish();
+          if (!g.workers.includes(prev)) return step(i + 1);
+          const nw = this._addWorker(g, true);
+          nw.state = 'starting';
+          nw.version = g.deploys + 1;
+          this._layout(true);
+          this.clock.after(1, () => {
+            if (gen !== this.gen) return resolve();
+            nw.state = g.bug ? 'down' : 'up';
+            if (prev.state === 'up') prev.state = 'draining';
+            const wait = () => {
+              if (gen !== this.gen) return resolve();
+              if (prev.state !== 'down' && (prev.active || prev.queue.length)) { this.clock.after(0.1, wait); return; }
+              this._removeWorker(g, prev);
+              this._layout(true);
+              this.clock.after(0.3, () => step(i + 1));
+            };
+            wait();
+          });
+        };
+        step(0);
+      });
+      return g.deploying;
+    }
+
+    deploying() { return this.groups.some(g => g.deploying); }
+    deployCount(id) { const g = this._target(id); return g ? g.deploys : 0; }
+
+    // Falla: en el monolito, un bug en un módulo tira todas las copias (corren el mismo código); si no, solo ese grupo
+    crash(id) {
+      const g = MODULES.includes(id) && this.mono ? this.mono : this._target(id);
+      if (!g || g.bug) return;
+      g.bug = id;
+      const gen = this.gen;
+      g.workers.forEach((w, i) => this.clock.after(0.25 * i, () => {
+        if (gen !== this.gen || !g.bug || w.state === 'down') return;
+        w.state = 'down';
+        this._kill(w);
+        this._pop(w, '💥', C.err);
+      }));
+      this.emit('change');
+    }
+
+    recover(id) {
+      const g = MODULES.includes(id) && this.mono ? this.mono : this._target(id);
+      if (!g || !g.bug) return;
+      g.bug = null;
+      g.workers.forEach(w => { if (w.state === 'down') w.state = 'up'; });
+      this.emit('change');
+    }
+
+    upCopies() { return this.mono ? this.mono.workers.filter(w => w.state === 'up').length : 0; }
+
     resources() {
       return this.groups.reduce((a, g) => a + g.workers.length * (g.kind === 'mono' ? MODULES.length : 1), 0);
     }
