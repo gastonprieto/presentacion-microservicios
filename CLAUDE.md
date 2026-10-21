@@ -2,13 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Presentación interactiva en español (reveal.js + GSAP + Chart.js) sobre <TEMA> para <AUDIENCIA>. Todo el contenido visible y las notas del orador están en español. Basada en el template de `presentaciones-guideline` (ver su `GUIDELINE.md` para el detalle de patrones y decisiones).
+Presentación interactiva en español (reveal.js + GSAP + Chart.js) sobre microservicios (de un monolito a servicios separados, y cómo hace el cliente para hablar con todos) para alumnos que ya vieron load balancing. Precede a la de proxy reverso (`../presentacion-proxy-reverso`), pero tiene que poder darse sola: ninguna slide visible nombra "proxy" ni "gateway". Todo el contenido visible y las notas del orador están en español. Basada en el template de `presentaciones-guideline` (ver su `GUIDELINE.md` para el detalle de patrones y decisiones).
 
 ## Comandos
 
 - No hay build ni linter. Se abre `index.html` directo (`open -a "Google Chrome" index.html#/1` abre la slide 2; el hash es 0-based).
-- Pruebas con Chrome headless (desde la carpeta `tools/` de `presentaciones-guideline`, después de `npm i`): `node smoke.js <esta carpeta>` recorre la versión de escritorio (errores de consola y paneles que desbordan) y `node mobile.js <esta carpeta>` emula un iPhone (versión móvil, scroll horizontal, botones que no reciben el toque). Ambos dejan capturas en `tools/png/` y salen con código ≠ 0 si algo falla.
-- Deploy: GitHub Pages sirve la rama `main` desde la raíz. Un push a `main` publica.
+- Pruebas con Chrome headless (desde la carpeta `tools/` de `presentaciones-guideline`, después de `npm i`): `node smoke.js <esta carpeta>` recorre la versión de escritorio (errores de consola y paneles que desbordan) y `node mobile.js <esta carpeta>` emula un iPhone (versión móvil, scroll horizontal, botones que no reciben el toque). Ambos dejan capturas en `tools/png/` y salen con código ≠ 0 si algo falla. Además, desde esta carpeta: `node tests/interact.js [filtro]` (motor MicroKit y escenas).
+- Deploy: GitHub Pages sirve la rama `main` desde la raíz. Un push a `main` publica. **No publicar sin que el autor la revise local primero.**
 - `vendor/` tiene versiones fijas descargadas (reveal.js 5.1.0, GSAP 3.12.5, Chart.js 4.4.1). No usar CDN: la presentación tiene que funcionar offline.
 
 ## Restricciones que no son obvias
