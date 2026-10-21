@@ -357,3 +357,7 @@ html.mobile .speed-ctl span { min-width: 34px; }
 .microsim .deploying .t-sub { fill: var(--yellow); }
 .microsim .t-host { fill: var(--muted); font: 600 12px var(--mono); }
 .microsim .t-code { fill: #cbd5e1; font: 11px var(--mono); }
+.microsim .cell { fill: #0a1a2c; stroke: #2b5577; stroke-width: 1; }
+.microsim .worker.down .cell { fill: #3a1018; stroke: var(--red); }
+.microsim .worker.deploying .cell { stroke: var(--yellow); }
+.microsim .t-rep { fill: #cbd5e1; font: 600 10px var(--mono); }

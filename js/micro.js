@@ -75,7 +75,7 @@
       this.c = { sent: 0, ok: 0, err: 0, e404: 0, calls: 0 };
       this.log = [];
       this.flying = new Set();
-      this.seq = 0; this.wseq = 0;
+      this.seq = 0; this.wseq = 0; this.clientVersion = 1;
       this._build();
       this._schedule();
       this._frame();
@@ -99,21 +99,42 @@
       this.groups = [];
       if (this.o.topology === 'monolith') {
         this.mono = this._group({ id: 'monolith', kind: 'mono', label: 'Monolito', icon: '🖥', serves: ['/'] }, this.o.copies);
+      } else {
+        this.mono = null;
+        this.o.services.forEach(d => this._group(Object.assign({ kind: 'svc' }, d), d.replicas || 1));
       }
+      // qué host conoce el cliente para cada ruta (en 'direct')
+      this.clientMap = {};
+      this.o.services.forEach(d => d.serves.forEach(p => { this.clientMap[p] = d.id; }));
       this._layout(false);
     }
 
-    _group(def, n) {
-      const g = Object.assign({ workers: [], rr: 0, deploys: 0 }, def);
+    _group(def, n, fresh) {
+      const g = Object.assign({ workers: [], rr: 0, deploys: 0, x: 0, y: 0, hw: 0, hh: 0, scale: fresh ? 0 : 1 }, def);
       g.el = svgEl('g', { class: `grp ${def.kind}` }, this.gNodes);
+      if (def.kind !== 'mono') {
+        g.box = svgEl('rect', { class: 'node-box', rx: 10 }, g.el);
+        g.stripe = svgEl('rect', { class: 'stripe', width: 6, rx: 3, fill: def.color || svcColor(def.id) }, g.el);
+        g.title = svgEl('text', { class: 't-title small' }, g.el);
+        g.sub = svgEl('text', { class: 't-sub' }, g.el);
+        g.cells = svgEl('g', {}, g.el);
+      }
       for (let i = 0; i < n; i++) this._addWorker(g, false);
       this.groups.push(g);
       return g;
     }
 
     _addWorker(g, fresh) {
-      const w = { id: ++this.wseq, state: 'up', active: 0, queue: [], epoch: 0, version: g.deploys, x: 0, y: 0, hw: 0, hh: 0, scale: fresh ? 0 : 1 };
-      w.g = svgEl('g', { class: g.kind === 'mono' ? 'copy' : 'worker' }, g.el);
+      const w = { id: ++this.wseq, state: 'up', active: 0, queue: [], epoch: 0, version: g.deploys, x: g.x, y: g.y, hw: g.hw, hh: g.hh, scale: fresh ? 0 : 1 };
+      if (g.kind !== 'mono') {
+        w.g = svgEl('g', { class: 'worker' }, g.cells);
+        w.box = svgEl('rect', { class: 'cell', rx: 3 }, w.g);
+        w.dots = svgEl('text', { class: 't-rep', 'text-anchor': 'middle' }, w.g);
+        w.scale = 1;
+        g.workers.push(w);
+        return w;
+      }
+      w.g = svgEl('g', { class: 'copy' }, g.el);
       w.box = svgEl('rect', { class: 'node-box', rx: 10 }, w.g);
       w.title = svgEl('text', { class: 't-title small', 'text-anchor': 'middle' }, w.g);
       w.sub = svgEl('text', { class: 't-sub', 'text-anchor': 'middle' }, w.g);
@@ -152,6 +173,14 @@
           }
         });
       }
+      const svcs = this.groups.filter(g => g.kind === 'svc'), n = svcs.length;
+      svcs.forEach((g, i) => {
+        if (v) set(g, { x: W * (i + 0.5) / n, y: 340, hw: Math.min(92, W / n / 2 - 5), hh: 62 });
+        else {
+          const gap = Math.min(150, (H - 40) / n);
+          set(g, { x: 660, y: H / 2 + (i - (n - 1) / 2) * gap, hw: 150, hh: Math.min(54, gap / 2 - 10) });
+        }
+      });
       this._relink();
     }
 
@@ -164,6 +193,14 @@
       if (this.mono) {
         if (this._showLb()) { L(this.client, this.lb); this.mono.workers.forEach(w => L(this.lb, w)); }
         else this.mono.workers.forEach(w => L(this.client, w));
+      }
+      this.hosts = [];
+      if (this.o.topology === 'direct') {
+        this.groups.forEach(g => {
+          L(this.client, g);
+          const t = svgEl('text', { class: 't-host', 'text-anchor': 'middle' }, this.gLinks);
+          this.hosts.push({ g, t });
+        });
       }
     }
 
@@ -188,11 +225,27 @@
       const req = { id: ++this.seq, path: this._pickPath(), t0: this.now };
       this.c.sent++;
       this.flying.add(req);
+      const color = ROUTE_COLORS[req.path] || C.req;
       if (this.mono) {
-        const color = ROUTE_COLORS[req.path] || C.req;
         if (this._showLb()) this._fly(this.client, this.lb, color, () => this._toGroup(req, this.mono, this.lb, color));
         else this._toGroup(req, this.mono, this.client, color);
+      } else if (this.o.topology === 'direct') {
+        const g = this._target(this._owner(req.path, this.clientMap));
+        this._toGroup(req, g, this.client, color);
       }
+    }
+
+    // Dueño de una ruta: el prefijo más largo que coincide (en un mapa ruta → id)
+    _owner(path, map) {
+      let best = null;
+      Object.keys(map).forEach(p => { if (path.startsWith(p) && (!best || p.length > best.length)) best = p; });
+      return best && map[best];
+    }
+
+    _servesMap() {
+      const m = {};
+      this.groups.forEach(g => (g.serves || []).forEach(p => { m[p] = g.id; }));
+      return m;
     }
 
     // Elige un worker en marcha (round robin) y le manda el pedido desde `from`
@@ -210,6 +263,11 @@
 
     _atWorker(req, g, w, done) {
       if (w.state === 'down') { this._pop(w, '✕ conexión', C.err); done('conn'); return; }
+      if (g.kind === 'svc' && this._owner(req.path, this._servesMap()) !== g.id) {
+        // el cliente le pidió a este servicio algo que ya no atiende
+        this._pop(w, '404', C.err); done(404); return;
+      }
+      req.svc = g.kind === 'svc' ? g.id : req.svc;
       if (w.active < this.o.capacity) this._work(req, g, w, done);
       else if (w.queue.length < this.o.maxQueue) w.queue.push({ req, done });
       else { this._pop(w, '503', C.err); done(503); }
@@ -264,6 +322,36 @@
     setRate(r) { this.o.rate = r; this._schedule(); }
     setMix(path, weight) { this.o.mix[path] = weight; }
     setWork(path, sec) { this.o.workTime[path] = sec; }
+
+    setReplicas(id, n) {
+      const g = this._target(id);
+      if (!g || g.kind === 'mono' || g.deploying) return;
+      n = Math.max(1, Math.min(4, n));
+      while (g.workers.length < n) { const w = this._addWorker(g, true); if (g.bug) w.state = 'down'; }
+      while (g.workers.length > n) { const w = g.workers[g.workers.length - 1]; this._kill(w); this._removeWorker(g, w); }
+      this.emit('change');
+    }
+
+    replicas(id) { const g = this._target(id); return g ? g.workers.length : 0; }
+
+    // Parte un servicio: Envíos sale de Órdenes con su propio host. El cliente viejo sigue yendo a Órdenes (404).
+    split(id) {
+      if (id !== 'envios' || this._target('envios') || this.mono) return false;
+      const def = { id: 'envios', label: 'Envíos', icon: '📦', serves: ['/ordenes/envios'], color: ROUTE_COLORS['/ordenes/envios'] };
+      this.o.services.push(def);
+      this.o.mix['/ordenes/envios'] = 1;
+      const g = this._group(Object.assign({ kind: 'svc' }, def), 1, true);
+      this._layout(true);
+      this.emit('change');
+      return g;
+    }
+
+    updateClient() {
+      if (!this._target('envios')) return;
+      this.clientMap['/ordenes/envios'] = 'envios';
+      this.clientVersion = 2;
+      this.emit('change');
+    }
 
     get copies() { return this.mono ? this.mono.workers : []; }
 
@@ -403,11 +491,49 @@
       for (const l of this.links) l.el.setAttribute('d', curve(edge(l.a, l.b, this.v), edge(l.b, l.a, this.v), this.v));
       this.client.sub.textContent = this.o.host;
       this.lb.g.style.display = this._showLb() ? '' : 'none';
-      this.groups.forEach(g => g.workers.forEach((w, i) => this._drawWorker(g, w, i)));
+      this.groups.forEach(g => {
+        if (g.kind !== 'mono') this._drawGroup(g);
+        g.workers.forEach((w, i) => this._drawWorker(g, w, i));
+      });
+      this.hosts.forEach(h => {
+        const P = cubic(edge(this.client, h.g, this.v), edge(h.g, this.client, this.v), 0.55, this.v);
+        h.t.setAttribute('x', P.x); h.t.setAttribute('y', P.y - 6);
+        h.t.textContent = `${h.g.id}.${this.o.host}`;
+      });
+      if (this.o.topology === 'direct') {
+        const n = new Set(Object.values(this.clientMap)).size;
+        this.client.sub.textContent = `conoce ${n} direcciones`;
+      }
       this.emit('tick', this.now);
     }
 
+    _drawGroup(g) {
+      g.el.setAttribute('transform', `translate(${g.x},${g.y}) scale(${g.scale})`);
+      const down = g.workers.length && g.workers.every(w => w.state === 'down');
+      g.el.classList.toggle('down', down);
+      g.el.classList.toggle('deploying', !!g.deploying);
+      g.box.setAttribute('x', -g.hw); g.box.setAttribute('y', -g.hh);
+      g.box.setAttribute('width', g.hw * 2); g.box.setAttribute('height', g.hh * 2);
+      g.stripe.setAttribute('x', -g.hw + 4); g.stripe.setAttribute('y', -g.hh + 6); g.stripe.setAttribute('height', g.hh * 2 - 12);
+      const narrow = g.hw < 110, tx = narrow ? 3 : -g.hw + 18;
+      [g.title, g.sub].forEach(t => { t.setAttribute('x', tx); t.setAttribute('text-anchor', narrow ? 'middle' : 'start'); });
+      g.title.setAttribute('y', -g.hh + 20); g.sub.setAttribute('y', -g.hh + 36);
+      g.title.textContent = `${g.icon} ${g.label}${g.deploys ? ` · v${g.deploys + 1}` : ''}`;
+      const n = g.workers.length;
+      g.sub.textContent = down ? 'caído' : g.deploying ? 'deploy…' : narrow ? `×${n}` : n > 1 ? `${n} réplicas · con su LB` : '1 réplica';
+      g.workers.forEach(w => { w.x = g.x; w.y = g.y; w.hw = g.hw; w.hh = g.hh; });
+    }
+
     _drawWorker(g, w, i) {
+      if (g.kind !== 'mono') {
+        const n = g.workers.length, cw = Math.min(34, (g.hw * 2 - 30) / n - 4), x = -g.hw + 16 + i * (cw + 4);
+        w.box.setAttribute('x', x); w.box.setAttribute('y', g.hh - 22); w.box.setAttribute('width', cw); w.box.setAttribute('height', 15);
+        w.dots.setAttribute('x', x + cw / 2); w.dots.setAttribute('y', g.hh - 11);
+        w.dots.textContent = w.state === 'down' ? '✕' : w.state === 'starting' ? '…' : w.queue.length ? `+${w.queue.length}` : w.active;
+        w.g.classList.toggle('down', w.state === 'down');
+        w.g.classList.toggle('deploying', w.state === 'starting' || w.state === 'draining');
+        return;
+      }
       w.g.setAttribute('transform', `translate(${w.x},${w.y}) scale(${w.scale})`);
       w.g.classList.toggle('down', w.state === 'down');
       w.g.classList.toggle('deploying', w.state === 'starting' || w.state === 'draining');

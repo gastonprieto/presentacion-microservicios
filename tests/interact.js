@@ -178,6 +178,77 @@ test('micro: falla de pagos tira todas las copias', async page => {
   check(r.inv, 'invariante');
 });
 
+test('micro: direct escala solo pagos', async page => {
+  await open(page);
+  for (const seed of [1, 2, 3]) {
+    const r = await engine(page, `(svg, seed) => {
+      const s = new MicroKit.MicroSim(svg, Object.assign(${SPIKE}, { topology: 'direct', seed }));
+      s.setReplicas('pagos', 3);
+      s.fastForward(10);
+      return { w: s.window(10), res: s.resources() };
+    }`, seed);
+    check(r.w.err === 0, `seed ${seed}: err=${r.w.err}`);
+    check(r.res === 5, `recursos=${r.res}`);
+  }
+});
+
+test('micro: deploy de un servicio no toca a los otros', async page => {
+  await open(page);
+  const r = await engine(page, `svg => {
+    const s = new MicroKit.MicroSim(svg, { topology: 'direct' });
+    let touched = null;
+    s.on('deploy', e => { touched = e.touched; });
+    s.deploy('ordenes');
+    s.fastForward(6);
+    return { touched, o: s.deployCount('ordenes'), u: s.deployCount('usuarios'), err: s.window(6).err };
+  }`);
+  check(JSON.stringify(r.touched) === '["ordenes"]', `touched=${JSON.stringify(r.touched)}`);
+  check(r.o === 1 && r.u === 0, `ordenes=${r.o} usuarios=${r.u}`);
+  check(r.err === 0, `err=${r.err}`);
+});
+
+test('micro: falla de pagos no tira al resto', async page => {
+  await open(page);
+  const r = await engine(page, `svg => {
+    const s = new MicroKit.MicroSim(svg, { topology: 'direct' });
+    s.crash('pagos');
+    s.fastForward(1);
+    const t0 = s.log.length;
+    s.fastForward(5);
+    const errPaths = [...new Set(s.log.slice(t0).filter(e => e.status !== 200).map(e => e.path))];
+    return { w: s.window(5), errPaths };
+  }`);
+  check(r.w.byService.usuarios > 0 && r.w.byService.ordenes > 0, `byService=${JSON.stringify(r.w.byService)}`);
+  check(r.w.err > 0 && r.errPaths.join() === '/pagos', `errores en ${r.errPaths}`);
+});
+
+test('micro: split rompe al cliente viejo', async page => {
+  await open(page);
+  const r = await engine(page, `svg => {
+    const s = new MicroKit.MicroSim(svg, { topology: 'direct' });
+    s.split('envios');
+    s.fastForward(5);
+    const a = s.window(5);
+    s.updateClient();
+    s.fastForward(1);
+    s.fastForward(4);
+    return { a, b: s.window(4), inv: (${INV})(s.window(4)) };
+  }`);
+  check(r.a.e404 > 0, `antes de actualizar e404=${r.a.e404}`);
+  check(r.b.e404 === 0 && r.b.byService.envios > 0, `después: e404=${r.b.e404} envios=${r.b.byService.envios}`);
+  check(r.inv, 'invariante');
+});
+
+test('micro: split repetido se ignora', async page => {
+  await open(page);
+  const r = await engine(page, `svg => {
+    const s = new MicroKit.MicroSim(svg, { topology: 'direct' });
+    s.split('envios'); s.split('envios');
+    return s.groups.filter(g => g.id === 'envios').length;
+  }`);
+  check(r === 1, `servicios envios=${r}`);
+});
+
 /* ---------- escenas ---------- */
 
 /* ---------- runner ---------- */
