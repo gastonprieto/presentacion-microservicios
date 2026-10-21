@@ -2,6 +2,8 @@
 
 Presentación interactiva (reveal.js + simulaciones en SVG) sobre microservicios: los límites de un monolito (escalar, deployar y fallar todo junto), qué se gana al partirlo en servicios, el costo de que el cliente conozca muchas direcciones y la app web como única dirección (y por qué termina pareciéndose a un monolito). Va antes de la de proxy reverso, pero se puede dar sola.
 
+**Verla:** https://gastonprieto.github.io/presentacion-microservicios/ (en el celular se ve como documento vertical).
+
 Teclas: `→` avanzar · `S` notas del orador · `F` pantalla completa · `O` vista general · `-` / `+` velocidad de las simulaciones.
 
 ## Probar
