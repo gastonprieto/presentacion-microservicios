@@ -42,11 +42,33 @@ async function llamar(servicio, path) {
   }
 }
 
-function pagina(res, titulo, partes, t0) {
-  const cuerpo = partes.map((p) => `  ${p.ok ? '✓' : '✗'} ${p.texto}`).join('\n');
-  log(`${titulo} → ${partes.map((p) => `${p.servicio} ${p.status} (${p.ms} ms)`).join(', ')} → página en ${Date.now() - t0} ms`);
-  res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'X-Servidor': 'app web' });
-  res.end(`tienda.com · ${titulo} (armada en ${Date.now() - t0} ms con ${partes.length} llamadas)\n${cuerpo}\n`);
+// Orquestar: hace las llamadas de una página y junta las partes. Dos decisiones que también son código:
+//   ?serie=1          una llamada detrás de otra (sin esto, todas a la vez: tarda lo del servicio más lento)
+//   ?si-falta=fallar  si falta una parte, la página entera falla con 502 (sin esto, sale con el hueco).
+//                     En serie corta en la primera falla: las que siguen ni se llaman.
+async function orquestar(llamadas, url) {
+  const serie = url.searchParams.get('serie') === '1';
+  const fallar = url.searchParams.get('si-falta') === 'fallar';
+  if (!serie) return Promise.all(llamadas.map(([servicio, path]) => llamar(servicio, path)));
+  const partes = [];
+  for (const [servicio, path] of llamadas) {
+    if (fallar && partes.some((p) => !p.ok)) partes.push({ servicio, ok: false, status: '—', texto: `${servicio}: no se llamó`, ms: 0, salteada: true });
+    else partes.push(await llamar(servicio, path));
+  }
+  return partes;
+}
+
+function pagina(res, url, titulo, partes, t0) {
+  const fallar = url.searchParams.get('si-falta') === 'fallar';
+  const modo = url.searchParams.get('serie') === '1' ? 'en serie' : 'en paralelo';
+  const llamadas = partes.filter((p) => !p.salteada).length;
+  const ms = Date.now() - t0;
+  const cuerpo = partes.map((p) => `  ${p.salteada ? '–' : p.ok ? '✓' : '✗'} ${p.texto}`).join('\n');
+  log(`${titulo} (${modo}) → ${partes.map((p) => `${p.servicio} ${p.status} (${p.ms} ms)`).join(', ')} → página en ${ms} ms`);
+  const code = fallar && partes.some((p) => !p.ok) ? 502 : 200;
+  res.writeHead(code, { 'Content-Type': 'text/plain; charset=utf-8', 'X-Servidor': 'app web' });
+  if (code === 502) return res.end(`tienda.com · ${titulo}: 502, no pudimos cargar la página (${modo}, ${ms} ms, ${llamadas} llamadas)\n${cuerpo}\n`);
+  res.end(`tienda.com · ${titulo} (armada en ${ms} ms con ${llamadas} llamadas ${modo})\n${cuerpo}\n`);
 }
 
 http.createServer(async (req, res) => {
@@ -54,27 +76,27 @@ http.createServer(async (req, res) => {
   const t0 = Date.now();
   let m;
 
-  // Página de inicio: tres llamadas en paralelo, una por servicio.
+  // Página de inicio: una llamada por servicio.
   if (url.pathname === '/') {
-    const partes = await Promise.all([
-      llamar('usuarios', '/usuarios/yo'),
-      llamar('ordenes', '/ordenes/ultimas'),
-      llamar('pagos', '/pagos/medios'),
-    ]);
-    return pagina(res, 'inicio', partes, t0);
+    const partes = await orquestar([
+      ['usuarios', '/usuarios/yo'],
+      ['ordenes', '/ordenes/ultimas'],
+      ['pagos', '/pagos/medios'],
+    ], url);
+    return pagina(res, url, 'inicio', partes, t0);
   }
 
   // Página de una orden: la orden, su envío y su pago.
   if ((m = /^\/orden\/(\d+)$/.exec(url.pathname))) {
     const id = m[1];
-    const partes = await Promise.all([
-      llamar('ordenes', `/ordenes/${id}`),
-      llamar('ordenes', `/ordenes/envios/${id}`),
+    const partes = await orquestar([
+      ['ordenes', `/ordenes/${id}`],
+      ['ordenes', `/ordenes/envios/${id}`],
       // ✂ Separar Envíos (2/2): …y cambiá la línea de arriba por esta.
-      // llamar('envios', `/ordenes/envios/${id}`),
-      llamar('pagos', `/pagos/orden/${id}`),
-    ]);
-    return pagina(res, `orden #${id}`, partes, t0);
+      // ['envios', `/ordenes/envios/${id}`],
+      ['pagos', `/pagos/orden/${id}`],
+    ], url);
+    return pagina(res, url, `orden #${id}`, partes, t0);
   }
 
   // Pagar: una sola llamada, a Pagos. La respuesta dice qué réplica cobró.
@@ -86,7 +108,7 @@ http.createServer(async (req, res) => {
   }
 
   res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-  res.end('404 de la app web. Páginas: /  ·  /orden/7  ·  /pagar\n');
+  res.end('404 de la app web. Páginas: /  ·  /orden/7  ·  /pagar   (opciones: ?serie=1  ·  ?si-falta=fallar)\n');
 }).listen(3000, () => log(`arranqué; conozco a ${Object.keys(SERVICIOS).join(', ')}`));
 
 process.on('SIGTERM', () => process.exit(0));

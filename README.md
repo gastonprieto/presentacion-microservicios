@@ -41,7 +41,7 @@ docker compose --profile envios down   # al terminar
 | `localhost:8404` | panel del LB: qué copias del monolito están vivas (se refresca solo) | ídem |
 | `localhost:8101` · `8102` · `8103` | **Usuarios**, **Órdenes** y **Pagos** directos, cada uno en su dirección | Escalar, deployar y fallar por separado · El cliente conoce tres direcciones |
 | `localhost:8107` | **Envíos**, cuando se separa (perfil `envios`) | El cliente conoce tres direcciones |
-| `localhost:8080` | tienda.com versión **app web**: la única dirección del cliente | Una app web que orquesta · El orquestador decide el orden · Cuando falta una parte · El orquestador se volvió un mini-monolito |
+| `localhost:8080` | tienda.com versión **app web**: la única dirección del cliente | Una app web que orquesta · El orquestador decide el orden (`?serie=1`) · Cuando falta una parte (`?si-falta=fallar`) · El orquestador se volvió un mini-monolito |
 
 Rutas: los servicios (y el monolito) atienden `/usuarios/…`, `/ordenes/…` (incluye `/ordenes/envios/…`) y `/pagos/…`. La app web tiene páginas: `/` (inicio: usuario, últimas órdenes y medios de pago), `/orden/7` (la orden, su envío y su pago) y `/pagar`.
 
@@ -127,7 +127,7 @@ curl localhost:8102/ordenes/envios/7                # 404: el cliente viejo qued
 curl localhost:8107/ordenes/envios/7                # 📲 "actualizar el cliente": recién ahora anda
 ```
 
-**7. Una app web que orquesta.** El cliente le habla sólo a `localhost:8080`. La app web es el **orquestador**: por cada página hace una llamada por servicio, en paralelo, y espera a todas (la slide "El orquestador decide el orden" compara esto con hacerlas en serie):
+**7. Una app web que orquesta.** El cliente le habla sólo a `localhost:8080`. La app web es el **orquestador**: por cada página hace una llamada por servicio, en paralelo, y espera a todas:
 
 ```bash
 curl localhost:8080/
@@ -137,7 +137,26 @@ docker compose logs web --tail 2     # "inicio → usuarios 200 (52 ms), ordenes
 
 En `lab/web/server.js` está todo lo que la app web sabe de los servicios: la lista `SERVICIOS` con la dirección interna de cada uno y, por cada página, qué llamadas hace. Reparte entre réplicas con código también.
 
-**8. El orquestador se volvió un mini-monolito.** Con Envíos separado (paso 6), la página de la orden se rompe aunque el cliente no hizo nada:
+**8. El orquestador decide el orden.** Las mismas llamadas, una detrás de otra con `?serie=1`. En paralelo la página tarda lo de Pagos, el más lento; en serie tarda la suma:
+
+```bash
+curl localhost:8080/             # "armada en 308 ms con 3 llamadas en paralelo"
+curl 'localhost:8080/?serie=1'   # "armada en 473 ms con 3 llamadas en serie": 50 + 100 + 300 ms
+```
+
+**9. Cuando falta una parte.** Con Órdenes caído, la app web decide: por defecto la página sale con el hueco; con `?si-falta=fallar` falla entera, aunque Usuarios y Pagos estén sanos. En serie, además, corta en la primera falla y ni llama a los que siguen:
+
+```bash
+docker compose stop ordenes
+curl -i localhost:8080/                              # 200, con "✗ ordenes no respondió"
+curl -i 'localhost:8080/?si-falta=fallar'            # 502: no pudimos cargar la página
+curl -i 'localhost:8080/?serie=1&si-falta=fallar'    # 502 en 60 ms: "– pagos: no se llamó"
+docker compose start ordenes
+```
+
+Las dos decisiones son la función `orquestar` de `lab/web/server.js`: código de la app web, no de los servicios.
+
+**10. El orquestador se volvió un mini-monolito.** Con Envíos separado (paso 6), la página de la orden se rompe aunque el cliente no hizo nada:
 
 ```bash
 curl localhost:8080/orden/7      # ✗ 404 de Órdenes: la app web sigue llamando a Órdenes por los envíos
@@ -164,7 +183,7 @@ while true; do curl -s -o /dev/null -w "monolito %{http_code}   " localhost:8000
 |---|---|---|---|
 | Bug en Pagos (monolito) | `curl 'localhost:8000/pagos/cobrar?tarjeta=rota'` | Todas las copias se caen: `/usuarios` da 503 unos 7 s | se reinician solas |
 | Bug en Pagos (servicios) | `curl 'localhost:8080/pagar?tarjeta=rota'` | Sólo la sección de Pagos falla unos 5 s; Usuarios y Órdenes siguen | se reinicia solo |
-| Un servicio | `docker compose stop ordenes` | La página de inicio sale igual, con Órdenes ✗ (no hay ninguna réplica levantada): la app web decide qué mostrar cuando falta una parte (slide "Cuando falta una parte") | `docker compose start ordenes` |
+| Un servicio | `docker compose stop ordenes` | La página de inicio sale igual, con Órdenes ✗ (no hay ninguna réplica levantada): la app web decide qué mostrar cuando falta una parte; con `?si-falta=fallar` da 502 (paso 9) | `docker compose start ordenes` |
 | La app web | `docker compose stop web` | `localhost:8080` da `Failed to connect` aunque los servicios están perfectos (`curl localhost:8101/usuarios/1` → 200) | `docker compose start web` |
 | El LB del monolito | `docker compose stop lb` | `localhost:8000` da `Failed to connect` aunque las copias del monolito están vivas | `docker compose start lb` |
 | Saturar Pagos | `docker compose run --rm carga http://web:3000/pagar -c 30 -n 300` | 503 de Pagos; Usuarios y Órdenes no se enteran | `docker compose up -d --scale pagos=3` |
