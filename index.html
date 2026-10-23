@@ -240,7 +240,7 @@
 <!-- ============ 7. appweb ============ -->
 <section data-scene="appweb">
   <div class="kicker green">Una sola dirección</div>
-  <h2>Una app web que habla por todos</h2>
+  <h2>Una app web que orquesta</h2>
   <div class="demo">
     <div class="stage">
       <svg class="sim"></svg>
@@ -257,6 +257,7 @@
       <ul class="points">
         <li class="fragment">El cliente vuelve a conocer <b>una sola dirección</b>.</li>
         <li class="fragment">Los servicios ya no están expuestos: solo la app web los ve.</li>
+        <li class="fragment">Esto tiene nombre: <b>orquestación</b>. La app web es el <b>orquestador</b>: decide a quién llamar, en qué orden, y arma el resultado.</li>
       </ul>
     </div>
   </div>
@@ -264,14 +265,86 @@
     Cada punto celeste es una página que pide el cliente. La app web hace tres llamadas en paralelo (una por servicio), espera las tres respuestas y recién ahí contesta.
     Mirar el contador de llamadas internas: tres por cada página.
     Mostrar el "código": la app web sabe a qué servicio llamar y en qué dirección interna está.
+    Último fragmento: ponerle nombre. Una pieza central que dirige a las demás es un orquestador, y lo que hace es orquestar. En las dos slides que siguen se ve qué decide.
     Pregunta para la clase: ¿qué tiene que pasar en la app web si mañana agregamos un servicio nuevo?
   </aside>
 </section>
 
-<!-- ============ 8. cracks ============ -->
+<!-- ============ 8. orchestrate ============ -->
+<section data-scene="orchestrate">
+  <div class="kicker purple">Orquestar</div>
+  <h2>El orquestador decide el orden</h2>
+  <div class="demo">
+    <div class="stage">
+      <svg class="sim"></svg>
+      <div class="legend"><span><i style="background:#7dd3fc"></i>página</span><span><i style="background:#60a5fa"></i>usuarios</span><span><i style="background:#fb923c"></i>órdenes</span><span><i style="background:#2dd4bf"></i>pagos</span></div>
+    </div>
+    <div class="panel">
+      <p class="lead">La misma página, con las mismas tres llamadas. Lo único que cambia es <b>cómo las hace</b> la app web.</p>
+      <div class="actions">
+        <div class="seg" data-group="calls">
+          <button data-v="parallel" class="active">⇉ En paralelo</button>
+          <button data-v="serial">→ En serie</button>
+        </div>
+        <button class="btn ghost" data-act="reset">↺</button>
+      </div>
+      <div class="box"><div class="label">Última página, llamada por llamada</div><div class="timeline"></div></div>
+      <div class="mstats" data-fields="ok,lat,calls"></div>
+      <ul class="points">
+        <li class="fragment">Orquestar = una pieza central que <b>dirige</b> cada paso.</li>
+        <li class="fragment">El orden y las dependencias (la orden antes que su envío) viven en <b>su código</b>.</li>
+      </ul>
+    </div>
+  </div>
+  <aside class="notes">
+    Pagos es el más lento, Usuarios el más rápido (como en el laboratorio: 50, 100 y 300 ms).
+    En paralelo: las tres barras arrancan juntas y la página tarda lo que tarda Pagos.
+    Pasar a "En serie": cada llamada espera a la anterior y la página tarda la suma. Mirar el promedio de "Página".
+    A veces la serie es obligatoria: para pedir el envío de una orden primero hay que tener la orden. Quién sabe eso es el orquestador, en su código.
+    Pregunta para la clase: si mañana Pagos tarda el doble, ¿cuánto empeora cada versión?
+  </aside>
+</section>
+
+<!-- ============ 9. missing ============ -->
+<section data-scene="missing">
+  <div class="kicker red">Orquestar</div>
+  <h2>Cuando falta una parte</h2>
+  <div class="demo">
+    <div class="stage">
+      <svg class="sim"></svg>
+      <div class="legend"><span><i style="background:#7dd3fc"></i>página</span><span><i style="background:#60a5fa"></i>usuarios</span><span><i style="background:#fb923c"></i>órdenes</span><span><i style="background:#2dd4bf"></i>pagos</span></div>
+    </div>
+    <div class="panel">
+      <p class="lead">Se cae <b>Órdenes</b>. ¿La página sale igual, o falla entera? Lo decide el orquestador.</p>
+      <div class="actions">
+        <button class="btn primary" data-act="crash">💥 Tirar Órdenes</button>
+        <button class="btn" data-act="recover">🩹 Levantarlo</button>
+        <button class="btn ghost" data-act="reset">↺</button>
+      </div>
+      <div class="seg" data-group="missing">
+        <button data-v="partial" class="active">Mostrar lo que hay</button>
+        <button data-v="fail">Fallar la página</button>
+      </div>
+      <div class="box"><div class="label">Lo que ve el cliente</div><div class="page-view"></div></div>
+      <div class="mstats" data-fields="ok,partial,err"></div>
+      <ul class="points">
+        <li class="fragment">Con un hueco, Usuarios y Pagos <b>siguen sirviendo</b>.</li>
+        <li class="fragment">Esa decisión también es <b>código del orquestador</b>, página por página.</li>
+      </ul>
+    </div>
+  </div>
+  <aside class="notes">
+    Tirar Órdenes con "Mostrar lo que hay": las páginas siguen saliendo, con la sección de órdenes marcada como no disponible. El contador "Con hueco" sube y los errores quedan en cero.
+    Pasar a "Fallar la página": cada página termina en 502, aunque Usuarios y Pagos estén sanos.
+    Ninguna de las dos es la correcta siempre: sin el usuario no hay página; sin las últimas órdenes, quizás sí. Lo que hay que ver es dónde vive esa decisión: en el código del orquestador, por cada página.
+    Pregunta para la clase: ¿qué partes de la página de una orden son imprescindibles y cuáles se pueden omitir?
+  </aside>
+</section>
+
+<!-- ============ 10. cracks ============ -->
 <section data-scene="cracks">
   <div class="kicker red">Grietas</div>
-  <h2>La app web se volvió un mini-monolito</h2>
+  <h2>El orquestador se volvió un mini-monolito</h2>
   <div class="demo">
     <div class="stage">
       <svg class="sim"></svg>
@@ -297,22 +370,23 @@
   <aside class="notes">
     Tocar "Separar Envíos": aparece el servicio, pero la app web no lo conoce. Hay que agregar una línea a su código y deployarla (se ven las instancias reiniciándose de a una, sin errores). El cliente no se enteró, pero el equipo de la app web tuvo que trabajar por un cambio de otro equipo.
     Tocar "Tirar la app web": los tres servicios siguen verdes y aun así ningún cliente recibe nada.
+    Sumar lo de las dos slides anteriores: el orden de las llamadas y qué hacer cuando falta una parte también viven acá.
     Pregunta para la clase: ¿no se parece a lo que teníamos al principio? Una pieza que hay que tocar y deployar por cada cambio, y que si se cae arrastra a todos.
   </aside>
 </section>
 
-<!-- ============ 9. CIERRE ============ -->
+<!-- ============ 11. CIERRE ============ -->
 <section>
   <div class="kicker">Cierre</div>
   <h2>Lo que nos llevamos</h2>
   <div class="summary">
     <div class="card bad fragment"><div class="ico">🧱</div><h4>Monolito</h4><p>Simple, pero se escala, se deploya y se cae <b>todo junto</b>.</p></div>
     <div class="card good fragment"><div class="ico">🧩</div><h4>Servicios</h4><p>Cada parte escala, se deploya y falla <b>por su cuenta</b>.</p></div>
-    <div class="card bad fragment"><div class="ico">🖥</div><h4>Una sola dirección</h4><p>El cliente no puede conocer a todos. Una app web lo resuelve, pero con <b>código por cada servicio</b>.</p></div>
+    <div class="card bad fragment"><div class="ico">🖥</div><h4>Una sola dirección</h4><p>El cliente no puede conocer a todos. Un orquestador lo resuelve, pero con <b>código por cada servicio</b>.</p></div>
   </div>
   <p class="closing fragment">¿Y si en vez de <b>código</b> hubiera <b>reglas</b>?</p>
   <aside class="notes">
-    Repasar cada tarjeta con su demo: el pico de pagos, el deploy de órdenes, la falla aislada y la app web.
+    Repasar cada tarjeta con su demo: el pico de pagos, el deploy de órdenes, la falla aislada y la app web que orquesta.
     Los servicios también se hablan entre sí (con llamadas, colas o eventos): eso tiene sus propias clases.
     Dejar la pregunta abierta: ¿se puede tener una sola dirección sin escribir código cada vez que algo cambia atrás?
   </aside>

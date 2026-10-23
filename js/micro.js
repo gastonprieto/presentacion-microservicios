@@ -1,6 +1,7 @@
 /* Motor de las slides de microservicios: cliente → (LB) → monolito, servicios separados o app web.
    Topologías: 'monolith' (copias iguales con los tres módulos adentro), 'direct' (un host por servicio)
-   y 'appweb' (una app web que llama a cada servicio y arma la página).
+   y 'appweb' (una app web que orquesta: llama a cada servicio y arma la página; en paralelo o en serie
+   según `calls`, y con `onMissing` decide si una parte que falta tira la página o sale con un hueco).
    Cada grupo (monolito, servicio, app web) tiene workers con `capacity` pedidos en paralelo y una cola de `maxQueue`.
    Usa el Clock y la geometría de NetKit. Expone window.MicroKit = { MicroSim, ROUTE_COLORS, SERVICES }. */
 (function () {
@@ -19,7 +20,8 @@
   const DEFAULTS = {
     topology: 'monolith', seed: 1, rate: 3, mix: { '/usuarios': 1, '/ordenes': 1, '/pagos': 1 },
     copies: 1, capacity: 3, maxQueue: 6, workTime: { '/usuarios': 0.4, '/ordenes': 0.4, '/pagos': 0.4 },
-    services: null, host: 'tienda.com', travel: 0.35, pops: true, appwebInstances: 2
+    services: null, host: 'tienda.com', travel: 0.35, pops: true, appwebInstances: 2,
+    calls: 'parallel', onMissing: 'fail'
   };
   const APP_COLOR = '#7dd3fc';
 
@@ -74,7 +76,7 @@
       this.gPk = svgEl('g', {}, this.svg);
       this.gTop = svgEl('g', {}, this.svg);
       this.c = { sent: 0, ok: 0, err: 0, e404: 0, calls: 0 };
-      this.log = []; this.callLog = [];
+      this.log = []; this.callLog = []; this.lastPage = null;
       this.flying = new Set();
       this.seq = 0; this.wseq = 0; this.clientVersion = 1;
       this._build();
@@ -250,29 +252,48 @@
       }
     }
 
-    // La app web llama a cada servicio de su versión de código, espera todas las respuestas y arma la página
+    // La app web orquesta: llama a cada servicio de su versión de código (todos a la vez, o uno detrás de otro
+    // si calls = 'serial'), espera las respuestas y arma la página. Si falta una parte, onMissing decide:
+    // 'fail' → 502 (en serie corta en la primera falla); 'partial' → la página sale con el hueco.
     _atApp(req, inst) {
       const app = this.app;
       if (!inst || inst.state === 'down') { this._pop(app, '✕ conexión', C.err); this._finish(req, 'conn'); return; }
       const ids = this.code[Math.min(inst.version, this.code.length - 1)];
-      let left = ids.length, bad = false;
+      const partial = this.o.onMissing === 'partial';
+      const page = { t0: this.now, spans: [], parts: {} };
+      let left = ids.length, bad = 0;
       inst.active++;
-      ids.forEach(id => {
-        const g = this._target(id), call = { path: g.serves[0] };
+      const call = (id, then) => {
+        const g = this._target(id), c = { path: g.serves[0] }, span = { id, t0: this.now };
+        page.spans.push(span);
         this.c.calls++;
         this.callLog.push(this.now);
-        this._toGroup(call, g, app, ROUTE_COLORS[call.path] || C.req, st => {
-          if (st !== 200) bad = true;
+        this._toGroup(c, g, app, ROUTE_COLORS[c.path] || C.req, st => {
+          if (st !== 200) bad++;
           this._fly(g, app, st === 200 ? C.ok : C.err, () => {
-            if (--left) return;
-            inst.active = Math.max(0, inst.active - 1);
-            if (inst.state === 'down') { this._finish(req, 'conn'); return; }
-            const ok = !bad;
-            this._pop(app, ok ? '✔ página' : '502', ok ? C.ok : C.err);
-            this._fly(app, this.client, ok ? C.ok : C.err, () => this._finish(req, ok ? 200 : 502), this.o.travel * 0.8);
+            span.t1 = this.now; span.status = st; page.parts[id] = st;
+            then(st);
           }, this.o.travel * 0.8);
         });
-      });
+      };
+      const end = () => {
+        inst.active = Math.max(0, inst.active - 1);
+        if (inst.state === 'down') { this._finish(req, 'conn'); return; }
+        page.parts = Object.fromEntries(ids.map(id => [id, id in page.parts ? page.parts[id] : 'skip']));
+        page.t1 = this.now;
+        page.status = !bad ? 200 : partial && bad < ids.length ? 'partial' : 502;
+        req.lat = page.t1 - page.t0;
+        req.partial = page.status === 'partial';
+        this.lastPage = page;
+        this.emit('page', page);
+        const ok = page.status !== 502, col = req.partial ? C.slow : ok ? C.ok : C.err;
+        this._pop(app, req.partial ? '◐ página' : ok ? '✔ página' : '502', col);
+        this._fly(app, this.client, col, () => this._finish(req, ok ? 200 : 502), this.o.travel * 0.8);
+      };
+      if (this.o.calls === 'serial') {
+        const next = i => i === ids.length ? end() : call(ids[i], st => (st !== 200 && !partial ? end() : next(i + 1)));
+        next(0);
+      } else ids.forEach(id => call(id, () => { if (!--left) end(); }));
     }
 
     appwebCode() {
@@ -347,7 +368,7 @@
       this.flying.delete(req);
       if (status === 200) this.c.ok++;
       else { this.c.err++; if (status === 404) this.c.e404++; }
-      this.log.push({ t: this.now, path: req.path, status, svc: req.svc });
+      this.log.push({ t: this.now, path: req.path, status, svc: req.svc, lat: req.lat, partial: req.partial });
       if (this.log.length > 4000) this.log.splice(0, 1500);
     }
 
@@ -369,6 +390,9 @@
     setRate(r) { this.o.rate = r; this._schedule(); }
     setMix(path, weight) { this.o.mix[path] = weight; }
     setWork(path, sec) { this.o.workTime[path] = sec; }
+    // Cómo orquesta la app web las páginas que llegan desde ahora: 'parallel' | 'serial' y 'fail' | 'partial'
+    setCalls(mode) { this.o.calls = mode; this.emit('change'); }
+    setOnMissing(mode) { this.o.onMissing = mode; this.emit('change'); }
 
     setReplicas(id, n) {
       const g = this._target(id);
@@ -519,17 +543,21 @@
 
     // ok/err/e404/byPath: lo que terminó en los últimos `sec` segundos. total: acumulado (sent = ok + err + inFlight).
     window(sec) {
-      const t0 = this.now - sec, w = { ok: 0, err: 0, e404: 0, byPath: {}, byService: {} };
+      const t0 = this.now - sec, w = { ok: 0, err: 0, e404: 0, partial: 0, byPath: {}, byService: {} };
+      let lat = 0, nLat = 0;
       for (let i = this.log.length - 1; i >= 0 && this.log[i].t >= t0; i--) {
         const e = this.log[i];
+        if (e.lat != null) { lat += e.lat; nLat++; }
         if (e.status === 200) {
           w.ok++;
+          if (e.partial) w.partial++;
           w.byPath[e.path] = (w.byPath[e.path] || 0) + 1;
           if (e.svc) w.byService[e.svc] = (w.byService[e.svc] || 0) + 1;
         } else { w.err++; if (e.status === 404) w.e404++; }
       }
       if (this.callLog.length > 4000) this.callLog.splice(0, 1500);
       w.calls = this.callLog.filter(t => t >= t0).length;
+      w.pageLat = nLat ? lat / nLat : null;
       return Object.assign(w, {
         sent: this.c.sent, inFlight: this.flying.size, resources: this.resources(),
         total: { sent: this.c.sent, ok: this.c.ok, err: this.c.err, e404: this.c.e404, calls: this.c.calls }

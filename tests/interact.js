@@ -386,9 +386,9 @@ test('escena 7: el código de la app web se ve', async page => {
   check(/usuarios/.test(r) && /ordenes/.test(r) && /pagos/.test(r), `código=${r}`);
 });
 
-test('escena 8: separar cuesta un deploy, tirar corta todo', async page => {
+test('escena 10: separar cuesta un deploy, tirar corta todo', async page => {
   await open(page);
-  const r = await evalScene(page, 8, `sec => {
+  const r = await evalScene(page, 10, `sec => {
     const sim = sec._scene.sim;
     sim.fastForward(2);
     (${click})(sec, '[data-act=split]');
@@ -401,6 +401,87 @@ test('escena 8: separar cuesta un deploy, tirar corta todo', async page => {
   check(r.a.count === 1 && r.a.err === 0, JSON.stringify(r.a));
   check(/envios/.test(r.a.code), `código=${r.a.code}`);
   check(r.ok === 0, `ok con la app web caída=${r.ok}`);
+});
+
+test('micro: en serie la página tarda la suma, en paralelo la más lenta', async page => {
+  await open(page);
+  const r = await engine(page, `svg => {
+    const out = {};
+    for (const calls of ['parallel', 'serial']) {
+      const s = new MicroKit.MicroSim(svg, { topology: 'appweb', rate: 2, calls, workTime: { '/usuarios': 0.2, '/ordenes': 0.4, '/pagos': 1 } });
+      s.fastForward(12);
+      const w = s.window(8), p = s.lastPage;
+      const starts = p.spans.map(x => x.t0 - p.t0);
+      out[calls] = { lat: w.pageLat, err: w.err, starts, inv: (${INV})(w) };
+    }
+    return out;
+  }`);
+  check(r.parallel.err === 0 && r.serial.err === 0, JSON.stringify(r));
+  check(r.serial.lat > r.parallel.lat * 1.6, `paralelo=${r.parallel.lat} serie=${r.serial.lat}`);
+  check(r.parallel.starts.every(t => t === 0), `paralelo arranca junto: ${r.parallel.starts}`);
+  check(r.serial.starts[1] > 0 && r.serial.starts[2] > r.serial.starts[1], `serie escalonada: ${r.serial.starts}`);
+  check(r.parallel.inv && r.serial.inv, 'invariante');
+});
+
+test('micro: falta una parte, con hueco o fallando la página', async page => {
+  await open(page);
+  const r = await engine(page, `svg => {
+    const out = {};
+    for (const onMissing of ['partial', 'fail']) {
+      for (const calls of ['parallel', 'serial']) {
+        const s = new MicroKit.MicroSim(svg, { topology: 'appweb', rate: 3, onMissing, calls });
+        s.crash('ordenes');
+        s.fastForward(1);
+        s.fastForward(8);
+        const w = s.window(6), p = s.lastPage;
+        out[onMissing + '/' + calls] = { ok: w.ok, partial: w.partial, err: w.err, parts: p.parts, status: p.status, inv: (${INV})(w) };
+      }
+    }
+    return out;
+  }`);
+  for (const calls of ['parallel', 'serial']) {
+    const a = r['partial/' + calls], b = r['fail/' + calls];
+    check(a.ok > 0 && a.partial === a.ok && a.err === 0, `partial/${calls}: ${JSON.stringify(a)}`);
+    check(a.parts.usuarios === 200 && a.parts.pagos === 200 && a.parts.ordenes !== 200, `partes: ${JSON.stringify(a.parts)}`);
+    check(b.ok === 0 && b.err > 0 && b.status === 502, `fail/${calls}: ${JSON.stringify(b)}`);
+    check(a.inv && b.inv, 'invariante');
+  }
+  // en serie, fallar la página corta en Órdenes: Pagos ni se llama
+  check(r['fail/serial'].parts.pagos === 'skip', `pagos=${r['fail/serial'].parts.pagos}`);
+});
+
+test('escena 8: paralelo vs serie', async page => {
+  await open(page);
+  const r = await evalScene(page, 8, `sec => {
+    const sim = sec._scene.sim;
+    sim.fastForward(8);
+    const a = sim.window(6).pageLat;
+    (${click})(sec, '.seg[data-group=calls] [data-v=serial]');
+    sim.fastForward(10);
+    return { a, b: sim.window(6).pageLat, mode: sim.o.calls, rows: sec.querySelectorAll('.timeline .tl-row').length, lat: sec.querySelector('.mstats [data-f=lat]').textContent };
+  }`);
+  check(r.mode === 'serial' && r.b > r.a * 1.6, JSON.stringify(r));
+  check(r.rows === 3 && / s$| ms$/.test(r.lat), JSON.stringify(r));
+});
+
+test('escena 9: tirar Órdenes con hueco y sin hueco', async page => {
+  await open(page);
+  const r = await evalScene(page, 9, `sec => {
+    const sim = sec._scene.sim;
+    (${click})(sec, '[data-act=crash]');
+    sim.fastForward(1);
+    sim.fastForward(5);
+    const a = { w: sim.window(5), view: sec.querySelector('.page-view').textContent };
+    (${click})(sec, '.seg[data-group=missing] [data-v=fail]');
+    sim.fastForward(3);
+    sim.fastForward(4);
+    const b = { w: sim.window(4), view: sec.querySelector('.page-view').textContent };
+    (${click})(sec, '[data-act=reset]');
+    return { a, b, mode: sim.o.onMissing, active: sec.querySelector('.seg[data-group=missing] .active').dataset.v };
+  }`);
+  check(r.a.w.partial > 0 && r.a.w.err === 0 && /Órdenes: no disponible/.test(r.a.view), JSON.stringify(r.a));
+  check(r.b.w.ok === 0 && r.b.w.err > 0 && /502/.test(r.b.view), JSON.stringify(r.b));
+  check(r.mode === 'partial' && r.active === 'partial', `después de ↺: ${r.mode} / ${r.active}`);
 });
 
 test('slides: ninguna visible nombra proxy ni gateway', async page => {

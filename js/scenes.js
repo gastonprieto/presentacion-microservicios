@@ -147,7 +147,7 @@
     return life(sim);
   };
 
-  /* ---------- 7 y 8. una app web que habla por todos / sus grietas ---------- */
+  /* ---------- 7 a 10. una app web que orquesta, cómo decide y sus grietas ---------- */
 
   // Muestra el código de la app web en <pre class="code">
   function codeBox(slide, sim) {
@@ -164,6 +164,35 @@
     codeBox(slide, sim);
     return life(sim);
   };
+
+  /* ---------- 8. el orquestador decide el orden ---------- */
+
+  // Usuarios es rápido y Pagos lento, como en el laboratorio: en serie la página tarda la suma
+  const ORDER_WORK = { '/usuarios': 0.2, '/ordenes': 0.4, '/pagos': 1 };
+
+  S.orchestrate = slide => {
+    const sim = msetup(slide, { rate: 2, topology: 'appweb', workTime: ORDER_WORK });
+    Widgets.pageTimeline(slide.querySelector('.timeline'), sim);
+    seg(slide, 'calls', v => sim.setCalls(v));
+    sim.on('reset', () => slide.querySelectorAll('.seg[data-group=calls] button').forEach(b => b.classList.toggle('active', b.dataset.v === sim.o.calls)));
+    on(slide, '[data-act=reset]', () => sim.reset());
+    return life(sim);
+  };
+
+  /* ---------- 9. cuando falta una parte ---------- */
+
+  S.missing = slide => {
+    const sim = msetup(slide, { rate: 2, topology: 'appweb', onMissing: 'partial' });
+    Widgets.pageView(slide.querySelector('.page-view'), sim);
+    seg(slide, 'missing', v => sim.setOnMissing(v));
+    sim.on('reset', () => slide.querySelectorAll('.seg[data-group=missing] button').forEach(b => b.classList.toggle('active', b.dataset.v === sim.o.onMissing)));
+    on(slide, '[data-act=crash]', () => sim.crash('ordenes'));
+    on(slide, '[data-act=recover]', () => sim.recover('ordenes'));
+    on(slide, '[data-act=reset]', () => sim.reset());
+    return life(sim);
+  };
+
+  /* ---------- 10. el orquestador se volvió un mini-monolito ---------- */
 
   S.cracks = slide => {
     const sim = msetup(slide, { rate: 2, topology: 'appweb' });
