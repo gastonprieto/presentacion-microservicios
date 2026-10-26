@@ -365,16 +365,17 @@ html.mobile .speed-ctl span { min-width: 34px; }
 .touched b { color: var(--yellow); }
 .microsim .t-host.small { font-size: 10px; }
 .panel pre.code { margin: 4px 0 0; font: 13px/1.45 var(--mono); color: #cbd5e1; white-space: pre-wrap; }
-.closing { text-align: center; font-size: 34px; margin-top: 26px; color: #cbd5e1; }
-.closing b { color: #fff; }
-html.mobile .closing { font-size: 24px; }
-.reveal section .summary:has(+ .closing) { margin-top: 40px; }
-.reveal section .summary:has(+ .closing) .card { min-height: 220px; }
-.reveal section .summary:has(+ .closing) .card p { font-size: 20px; }
-.reveal .closing { margin-top: 56px; }
-html.mobile .reveal section .summary:has(+ .closing) { margin-top: 12px; }
-html.mobile .reveal section .summary:has(+ .closing) .card { min-height: 0; }
-html.mobile .reveal .closing { margin-top: 24px; }
+.card.mid { border-top: 3px solid var(--yellow); }
+.reveal section .summary.final { margin-top: 56px; gap: 22px; }
+.reveal section .summary.final .card { min-height: 400px; padding: 26px 28px; gap: 14px; }
+.reveal section .summary.final .card .ico { font-size: 44px; }
+.reveal section .summary.final .card h4 { font-size: 28px; }
+.reveal section .summary.final .card p { font-size: 23px; }
+html.mobile .reveal section .summary.final { margin-top: 12px; }
+html.mobile .reveal section .summary.final .card { min-height: 0; padding: 16px; gap: 6px; }
+html.mobile .reveal section .summary.final .card .ico { font-size: 30px; }
+html.mobile .reveal section .summary.final .card h4 { font-size: 20px; }
+html.mobile .reveal section .summary.final .card p { font-size: 15px; }
 
 /* ---------- orquestar: última página (línea de tiempo y lo que ve el cliente) ---------- */
 
@@ -388,3 +389,33 @@ html.mobile .reveal .closing { margin-top: 24px; }
 .pv-part { font-size: 15px; padding: 4px 10px; border-radius: 8px; border: 1px solid var(--c); color: #e2e8f0; }
 .pv-part.missing { border: 1px dashed var(--red); color: var(--red); }
 .pv-fail { font-size: 15px; font-weight: 600; padding: 10px; border-radius: 8px; border: 1px solid var(--red); color: var(--red); background: rgba(248, 113, 113, .08); }
+
+/* ---------- tecnología y equipos (slides estáticas con .compare) ---------- */
+
+.layer-card.bad { border-top: 4px solid var(--red); }
+.layer-card.good { border-top: 4px solid var(--green); }
+.stack { display: grid; grid-template-columns: auto auto 1fr; gap: 6px 18px; font: 16px/1.5 var(--mono); color: #cbd5e1; background: #0a1124; border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; }
+.stack span:nth-child(3n+1) { color: var(--c); font-weight: 700; }
+.teams { display: flex; flex-direction: column; align-items: center; gap: 6px; background: #0a1124; border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+.team-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.team { font-size: 16px; color: #e2e8f0; padding: 4px 10px; border-radius: 8px; background: rgba(167, 139, 250, .14); }
+.svc { font: 700 15px var(--mono); color: var(--c); padding: 4px 12px; border-radius: 8px; border: 1px solid var(--c); }
+.team-arrow { font-size: 18px; color: var(--dim); letter-spacing: .3em; }
+.teams.cols { display: grid; grid-template-columns: repeat(3, 1fr); justify-items: center; }
+.compare.fit { height: auto; margin-top: 18px; }
+.compare.fit .layer-card { gap: 20px; padding: 24px 28px; }
+.compare.fit .stack { font-size: 20px; padding: 16px 20px; }
+.compare.fit .team { font-size: 19px; }
+.compare.fit .svc { font-size: 18px; }
+.compare.fit ul { font-size: 22px; }
+.quote { text-align: center; font-size: 28px; color: #cbd5e1; margin-top: 40px; }
+.quote b { color: #fff; }
+.quote span { display: block; font: 14px var(--mono); color: var(--muted); margin-top: 6px; }
+html.mobile .compare.fit .layer-card { gap: 14px; padding: 16px; }
+html.mobile .compare.fit .stack { font-size: 13px; gap: 4px 10px; padding: 10px; }
+html.mobile .compare.fit .team { font-size: 13px; padding: 3px 6px; white-space: nowrap; }
+html.mobile .teams { padding: 10px 6px; }
+html.mobile .team-row { gap: 6px; }
+html.mobile .compare.fit .svc { font-size: 13px; }
+html.mobile .compare.fit ul { font-size: 16px; }
+html.mobile .quote { font-size: 18px; margin-top: 20px; }

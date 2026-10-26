@@ -202,11 +202,93 @@
     1) "Pico en /pagos" y después dos veces "＋ Réplica de Pagos": los errores desaparecen y Recursos queda en 5 (con el monolito eran 9).
     2) "Deploy de Órdenes": solo órdenes muestra el deploy; los otros dos ni se enteran.
     3) "Bug en Pagos": pagos se pone rojo, pero los pedidos azules y naranjas siguen llegando bien.
-    Pregunta para la clase: si ahora todo es mejor, ¿por qué no partimos todo siempre? (preparar la próxima slide)
+    Pregunta para la clase: si ahora todo es mejor, ¿por qué no partimos todo siempre? (preparar las próximas slides)
   </aside>
 </section>
 
-<!-- ============ 6. direct ============ -->
+<!-- ============ 6. tecnología ============ -->
+<section>
+  <div class="kicker green">Ganancia</div>
+  <h2>Cada servicio elige su tecnología</h2>
+  <div class="compare fit">
+    <div class="layer-card bad">
+      <h3>Monolito <small>un stack para todo</small></h3>
+      <div class="stack">
+        <span style="--c:#60a5fa">usuarios</span><span>Java 8</span><span>MySQL</span>
+        <span style="--c:#fb923c">órdenes</span><span>Java 8</span><span>MySQL</span>
+        <span style="--c:#2dd4bf">pagos</span><span>Java 8</span><span>MySQL</span>
+      </div>
+      <ul>
+        <li>Un lenguaje, un framework y <b>una base</b> para todos los módulos.</li>
+        <li>Actualizar el framework es <b>actualizar todo</b> a la vez.</li>
+        <li>Si un módulo necesita otra cosa, se arregla con lo que hay.</li>
+      </ul>
+    </div>
+    <div class="layer-card good">
+      <h3>Servicios <small>cada uno el suyo</small></h3>
+      <div class="stack">
+        <span style="--c:#60a5fa">usuarios</span><span>Java 21</span><span>PostgreSQL</span>
+        <span style="--c:#fb923c">órdenes</span><span>Node.js</span><span>MongoDB</span>
+        <span style="--c:#2dd4bf">pagos</span><span>Go</span><span>PostgreSQL + Redis</span>
+      </div>
+      <ul>
+        <li class="fragment">Lo único que comparten es <b>el contrato</b>: HTTP y JSON.</li>
+        <li class="fragment">Cada uno usa <b>la base que le sirve</b> y se puede reescribir sin tocar a los demás.</li>
+        <li class="fragment">Poder no es deber: cada stack nuevo es algo más para <b>aprender, monitorear y mantener</b>.</li>
+      </ul>
+    </div>
+  </div>
+  <aside class="notes">
+    Como los servicios se hablan por la red, al de enfrente no le importa en qué está escrito: solo ve pedidos y respuestas HTTP con JSON.
+    Eso abre la puerta a elegir por servicio: órdenes guarda documentos que cambian de forma (MongoDB), pagos necesita transacciones (PostgreSQL) y algo rápido para no cobrar dos veces (Redis).
+    También permite migrar de a poco: se actualiza o reescribe un servicio por vez, en vez de "la gran migración" del monolito.
+    Ojo con el exceso: diez lenguajes en una empresa chica es diez veces el trabajo de librerías, imágenes, monitoreo y gente que sepa. Muchas empresas fijan dos o tres stacks permitidos.
+    Pregunta para la clase: ¿qué tendría que pasar para que valga la pena escribir un servicio en otro lenguaje?
+  </aside>
+</section>
+
+<!-- ============ 7. equipos ============ -->
+<section>
+  <div class="kicker purple">Organización</div>
+  <h2>Los servicios siguen a los equipos</h2>
+  <div class="compare fit">
+    <div class="layer-card bad">
+      <h3>Monolito <small>todos en el mismo código</small></h3>
+      <div class="teams">
+        <div class="team-row"><span class="team">👥 Equipo A</span><span class="team">👥 Equipo B</span><span class="team">👥 Equipo C</span></div>
+        <div class="team-arrow">↘ ↓ ↙</div>
+        <div class="team-row"><span class="svc" style="--c:#94a3b8">tienda</span></div>
+      </div>
+      <ul>
+        <li>Un cambio de un equipo <b>espera el deploy</b> de todos.</li>
+        <li>Para salir hay que <b>coordinar</b>: reuniones, ramas, congelamientos.</li>
+      </ul>
+    </div>
+    <div class="layer-card good">
+      <h3>Servicios <small>un equipo, sus servicios</small></h3>
+      <div class="teams cols">
+        <span class="team">👥 Usuarios</span><span class="team">👥 Órdenes</span><span class="team">👥 Pagos</span>
+        <span class="team-arrow">↓</span><span class="team-arrow">↓</span><span class="team-arrow">↓</span>
+        <span class="svc" style="--c:#60a5fa">usuarios</span><span class="svc" style="--c:#fb923c">órdenes</span><span class="svc" style="--c:#2dd4bf">pagos</span>
+      </div>
+      <ul>
+        <li class="fragment">Cada equipo <b>lo construye, lo deploya y lo opera</b>.</li>
+        <li class="fragment">Entre equipos se acuerda <b>el contrato</b>, no la fecha de salida.</li>
+      </ul>
+    </div>
+  </div>
+  <p class="quote fragment">“Las organizaciones diseñan sistemas que <b>copian su estructura de comunicación</b>.” <span>— Ley de Conway, 1967</span></p>
+  <aside class="notes">
+    En el monolito, tres equipos trabajan sobre el mismo programa: un cambio terminado de un equipo espera a que los otros estén listos, y un bug de uno frena el deploy de todos.
+    Con servicios, cada equipo es dueño de uno o pocos servicios: decide cuándo deploya, elige su stack (la slide anterior) y lo atiende cuando falla.
+    Lo que se negocia entre equipos es la API: qué rutas hay y qué devuelven. Mientras el contrato no cambie, cada uno sale cuando quiere.
+    Ley de Conway: el sistema termina pareciéndose al organigrama. Funciona para los dos lados: si querés servicios independientes, necesitás equipos independientes ("maniobra inversa de Conway").
+    El costo: con un equipo de cinco personas y veinte servicios, todos operan todo y se pierde la ventaja. Los servicios tienen sentido cuando hay varios equipos que se pisan.
+    Pregunta para la clase: en un equipo de tres personas, ¿conviene partir en servicios?
+  </aside>
+</section>
+
+<!-- ============ 8. direct ============ -->
 <section data-scene="direct">
   <div class="kicker red">El costo</div>
   <h2>El cliente conoce tres direcciones</h2>
@@ -237,7 +319,7 @@
   </aside>
 </section>
 
-<!-- ============ 7. appweb ============ -->
+<!-- ============ 9. appweb ============ -->
 <section data-scene="appweb">
   <div class="kicker green">Una sola dirección</div>
   <h2>Una app web que orquesta</h2>
@@ -270,7 +352,7 @@
   </aside>
 </section>
 
-<!-- ============ 8. orchestrate ============ -->
+<!-- ============ 10. orchestrate ============ -->
 <section data-scene="orchestrate">
   <div class="kicker purple">Orquestar</div>
   <h2>El orquestador decide el orden</h2>
@@ -305,7 +387,7 @@
   </aside>
 </section>
 
-<!-- ============ 9. missing ============ -->
+<!-- ============ 11. missing ============ -->
 <section data-scene="missing">
   <div class="kicker red">Orquestar</div>
   <h2>Cuando falta una parte</h2>
@@ -341,7 +423,7 @@
   </aside>
 </section>
 
-<!-- ============ 10. cracks ============ -->
+<!-- ============ 12. cracks ============ -->
 <section data-scene="cracks">
   <div class="kicker red">Grietas</div>
   <h2>El orquestador se volvió un mini-monolito</h2>
@@ -375,20 +457,20 @@
   </aside>
 </section>
 
-<!-- ============ 11. CIERRE ============ -->
+<!-- ============ 13. CIERRE ============ -->
 <section>
   <div class="kicker">Cierre</div>
   <h2>Lo que nos llevamos</h2>
-  <div class="summary">
+  <div class="summary final">
     <div class="card bad fragment"><div class="ico">🧱</div><h4>Monolito</h4><p>Simple, pero se escala, se deploya y se cae <b>todo junto</b>.</p></div>
-    <div class="card good fragment"><div class="ico">🧩</div><h4>Servicios</h4><p>Cada parte escala, se deploya y falla <b>por su cuenta</b>.</p></div>
-    <div class="card bad fragment"><div class="ico">🖥</div><h4>Una sola dirección</h4><p>El cliente no puede conocer a todos. Un orquestador lo resuelve, pero con <b>código por cada servicio</b>.</p></div>
+    <div class="card good fragment"><div class="ico">🧩</div><h4>Servicios</h4><p>Cada parte escala, se deploya y falla <b>por su cuenta</b>, con su tecnología y su equipo.</p></div>
+    <div class="card mid fragment"><div class="ico">🎼</div><h4>Orquestador</h4><p>El cliente conoce <b>una sola dirección</b>: la app web llama a los servicios, decide el orden y qué hacer si falta una parte. A cambio, cada servicio nuevo es <b>código y deploy</b> suyo, y si se cae, <b>cae todo</b>.</p></div>
   </div>
-  <p class="closing fragment">¿Y si en vez de <b>código</b> hubiera <b>reglas</b>?</p>
   <aside class="notes">
     Repasar cada tarjeta con su demo: el pico de pagos, el deploy de órdenes, la falla aislada y la app web que orquesta.
+    En la de servicios, recordar que la independencia también es de tecnología y de equipos (ley de Conway).
     Los servicios también se hablan entre sí (con llamadas, colas o eventos): eso tiene sus propias clases.
-    Dejar la pregunta abierta: ¿se puede tener una sola dirección sin escribir código cada vez que algo cambia atrás?
+    En la del orquestador, repasar lo que resuelve (una dirección, el orden de las llamadas, las partes que faltan) y lo que cuesta (es una pieza central que hay que tocar por cada servicio y que, si se cae, arrastra a todos).
   </aside>
 </section>
 

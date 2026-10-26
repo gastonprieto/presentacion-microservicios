@@ -363,9 +363,9 @@ test('escena 5: falla aislada', async page => {
   check(r.reps === 2, `réplicas de pagos=${r.reps}`);
 });
 
-test('escena 6: separar sin actualizar da errores', async page => {
+test('escena 8: separar sin actualizar da errores', async page => {
   await open(page);
-  const r = await evalScene(page, 6, `sec => {
+  const r = await evalScene(page, 8, `sec => {
     const sim = sec._scene.sim;
     (${click})(sec, '[data-act=split]');
     sim.fastForward(5);
@@ -380,15 +380,15 @@ test('escena 6: separar sin actualizar da errores', async page => {
   check(r.hosts, 'falta la dirección de envíos');
 });
 
-test('escena 7: el código de la app web se ve', async page => {
+test('escena 9: el código de la app web se ve', async page => {
   await open(page);
-  const r = await evalScene(page, 7, `sec => sec.querySelector('.code').textContent`);
+  const r = await evalScene(page, 9, `sec => sec.querySelector('.code').textContent`);
   check(/usuarios/.test(r) && /ordenes/.test(r) && /pagos/.test(r), `código=${r}`);
 });
 
-test('escena 10: separar cuesta un deploy, tirar corta todo', async page => {
+test('escena 12: separar cuesta un deploy, tirar corta todo', async page => {
   await open(page);
-  const r = await evalScene(page, 10, `sec => {
+  const r = await evalScene(page, 12, `sec => {
     const sim = sec._scene.sim;
     sim.fastForward(2);
     (${click})(sec, '[data-act=split]');
@@ -450,9 +450,9 @@ test('micro: falta una parte, con hueco o fallando la página', async page => {
   check(r['fail/serial'].parts.pagos === 'skip', `pagos=${r['fail/serial'].parts.pagos}`);
 });
 
-test('escena 8: paralelo vs serie', async page => {
+test('escena 10: paralelo vs serie', async page => {
   await open(page);
-  const r = await evalScene(page, 8, `sec => {
+  const r = await evalScene(page, 10, `sec => {
     const sim = sec._scene.sim;
     sim.fastForward(8);
     const a = sim.window(6).pageLat;
@@ -464,9 +464,9 @@ test('escena 8: paralelo vs serie', async page => {
   check(r.rows === 3 && / s$| ms$/.test(r.lat), JSON.stringify(r));
 });
 
-test('escena 9: tirar Órdenes con hueco y sin hueco', async page => {
+test('escena 11: tirar Órdenes con hueco y sin hueco', async page => {
   await open(page);
-  const r = await evalScene(page, 9, `sec => {
+  const r = await evalScene(page, 11, `sec => {
     const sim = sec._scene.sim;
     (${click})(sec, '[data-act=crash]');
     sim.fastForward(1);
@@ -526,9 +526,9 @@ test('micro: quitar una copia ocupada no deja pedidos colgados', async page => {
   check(r === 0, `en vuelo=${r}`);
 });
 
-test('escena 7: cuenta las llamadas internas', async page => {
+test('escena 9: cuenta las llamadas internas', async page => {
   await open(page);
-  const r = await evalScene(page, 7, `sec => {
+  const r = await evalScene(page, 9, `sec => {
     const sim = sec._scene.sim;
     sim.fastForward(5);
     return { w: sim.window(5).calls, txt: sec.querySelector('.mstats [data-f=calls]').textContent };
